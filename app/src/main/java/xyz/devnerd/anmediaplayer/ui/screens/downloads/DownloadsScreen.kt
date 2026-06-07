@@ -25,6 +25,7 @@ import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Wifi
@@ -60,7 +61,7 @@ import xyz.devnerd.anmediaplayer.ui.components.coverBrush
 private enum class DlFilter(val label: String, val match: (DownloadState) -> Boolean) {
     ALL("All", { true }),
     DOWNLOADED("Downloaded", { it == DownloadState.DONE }),
-    DOWNLOADING("Downloading", { it == DownloadState.DOWNLOADING }),
+    DOWNLOADING("Downloading", { it == DownloadState.DOWNLOADING || it == DownloadState.PAUSED }),
     QUEUED("Queued", { it == DownloadState.QUEUED }),
     FAILED("Failed", { it == DownloadState.FAILED }),
 }
@@ -76,8 +77,6 @@ fun DownloadsScreen(
     val ctx = LocalContext.current
     val items = DownloadsStore.items
     var filter by remember { mutableStateOf(DlFilter.ALL) }
-
-    LaunchedEffect(Unit) { while (true) { DownloadsStore.refresh(ctx); delay(1000) } }
 
     val done = items.filter { it.state == DownloadState.DONE }
     val used = done.sumOf { it.size }
@@ -119,7 +118,15 @@ fun DownloadsScreen(
                     }
                 }
             } else {
-                items(shown, key = { it.id }) { d -> DownloadRow(d, onPlay = { onPlay(d) }, onRemove = { DownloadsStore.remove(ctx, d.id) }) }
+                items(shown, key = { it.id }) { d ->
+                    DownloadRow(
+                        d,
+                        onPlay = { onPlay(d) },
+                        onPause = { DownloadsStore.pause(d.id) },
+                        onResume = { DownloadsStore.resume(d.id) },
+                        onRemove = { DownloadsStore.remove(ctx, d.id) },
+                    )
+                }
             }
         }
     }
@@ -133,7 +140,7 @@ private fun Thumb(file: String, done: Boolean) {
 }
 
 @Composable
-private fun DownloadRow(d: Download, onPlay: () -> Unit, onRemove: () -> Unit) {
+private fun DownloadRow(d: Download, onPlay: () -> Unit, onPause: () -> Unit, onResume: () -> Unit, onRemove: () -> Unit) {
     val playable = d.state == DownloadState.DONE && d.localUri != null
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).then(if (playable) Modifier.clickable(onClick = onPlay) else Modifier).padding(horizontal = 8.dp, vertical = 10.dp),
@@ -153,13 +160,20 @@ private fun DownloadRow(d: Download, onPlay: () -> Unit, onRemove: () -> Unit) {
                     Text("Failed", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
                 }
                 DownloadState.QUEUED -> Text("Queued", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                DownloadState.DOWNLOADING -> {
-                    Text("$p%  ·  ${fmtSize((d.size * (1 - p / 100.0)).toLong())} left", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
+                DownloadState.DOWNLOADING, DownloadState.PAUSED -> {
+                    val label = if (d.state == DownloadState.PAUSED) "Paused · $p%" else "$p%  ·  ${fmtSize((d.size * (1 - p / 100.0)).toLong())} left"
+                    Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
                     Box(Modifier.fillMaxWidth().height(4.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHighest)) {
-                        Box(Modifier.fillMaxHeight().fillMaxWidth(p / 100f).background(MaterialTheme.colorScheme.primary))
+                        Box(Modifier.fillMaxHeight().fillMaxWidth(p / 100f).background(if (d.state == DownloadState.PAUSED) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary))
                     }
                 }
             }
+        }
+        when (d.state) {
+            DownloadState.DOWNLOADING -> IconButton(onClick = onPause) { Icon(Icons.Outlined.Pause, "Pause", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+            DownloadState.PAUSED -> IconButton(onClick = onResume) { Icon(Icons.Filled.PlayArrow, "Resume", tint = MaterialTheme.colorScheme.primary) }
+            DownloadState.FAILED -> IconButton(onClick = onResume) { Icon(Icons.Outlined.Refresh, "Retry", tint = MaterialTheme.colorScheme.primary) }
+            else -> {}
         }
         IconButton(onClick = onRemove) { Icon(Icons.Outlined.Close, "Remove", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
     }

@@ -49,7 +49,7 @@ data class RecentItem(
     val path: List<String>,
 )
 
-enum class DownloadState { DONE, DOWNLOADING, QUEUED, FAILED }
+enum class DownloadState { DONE, DOWNLOADING, QUEUED, PAUSED, FAILED }
 
 data class Download(
     val id: String,
@@ -63,8 +63,16 @@ data class Download(
     val server: String,
     val path: List<String>,
     val durSec: Int,
-    val dmId: Long? = null,
+    val url: String = "",
+    val downloadedBytes: Long = 0,
     val localUri: String? = null,
+    /** SAF tree URI to move the finished file into. Null = keep in app storage. */
+    val destDir: String? = null,
 )
 
 data class Bookmark(val server: String, val path: List<String>)
+
+/** A user-pinned folder shown as a card on Home. */
+data class Shortcut(val server: String, val path: List<String>, val name: String) {
+    val key: String get() = "$server|${path.joinToString("/")}"
+}

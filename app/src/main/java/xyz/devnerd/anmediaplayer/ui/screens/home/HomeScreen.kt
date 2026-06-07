@@ -1,8 +1,12 @@
 package xyz.devnerd.anmediaplayer.ui.screens.home
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -33,6 +37,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,6 +55,7 @@ import xyz.devnerd.anmediaplayer.data.Server
 import xyz.devnerd.anmediaplayer.data.cleanTitle
 import xyz.devnerd.anmediaplayer.ui.components.coverBrush
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun HomeScreen(
     modifier: Modifier = Modifier,
@@ -60,6 +69,9 @@ fun HomeScreen(
     val servers: List<Server> = AppRepo.servers
     val cont = AppRepo.continueItems()
         .map { it to ((it.posSec.toFloat() / it.durSec) * 100).toInt() }
+    val shortcuts = AppRepo.shortcuts
+    var showAllSc by remember { mutableStateOf(false) }
+    var renaming by remember { mutableStateOf<xyz.devnerd.anmediaplayer.data.Shortcut?>(null) }
 
     Column(
         modifier = modifier
@@ -79,6 +91,29 @@ fun HomeScreen(
                 items(cont.size) { i ->
                     val (item, pct) = cont[i]
                     ContinueCard(item, pct, onClick = { onPlay(item) })
+                }
+            }
+        }
+
+        if (shortcuts.isNotEmpty()) {
+            SectionHead(
+                "Shortcuts",
+                action = if (shortcuts.size > 9) (if (showAllSc) "Show less" else "Show all") else null,
+                onAction = { showAllSc = !showAllSc },
+            )
+            val visible = if (showAllSc) shortcuts else shortcuts.take(9)
+            FlowRow(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                visible.forEach { sc ->
+                    ShortcutCard(
+                        name = sc.name,
+                        onOpen = { onOpenBrowse(sc.server, sc.path) },
+                        onRename = { renaming = sc },
+                        onRemove = { AppRepo.removeShortcut(sc.key) },
+                    )
                 }
             }
         }
@@ -113,6 +148,47 @@ fun HomeScreen(
                 Text("Add a server to browse and play remote media.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 androidx.compose.material3.Button(onClick = onOpenConnect, modifier = Modifier.padding(top = 4.dp)) { Text("Add server") }
             }
+        }
+    }
+
+    renaming?.let { sc ->
+        var text by remember(sc.key) { mutableStateOf(sc.name) }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { renaming = null },
+            title = { Text("Rename shortcut") },
+            text = {
+                androidx.compose.material3.OutlinedTextField(value = text, onValueChange = { text = it }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { if (text.isNotBlank()) AppRepo.renameShortcut(sc.key, text.trim()); renaming = null }) { Text("Save") } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { renaming = null }) { Text("Cancel") } },
+        )
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun ShortcutCard(name: String, onOpen: () -> Unit, onRename: () -> Unit, onRemove: () -> Unit) {
+    var menu by remember { mutableStateOf(false) }
+    Box {
+        Column(
+            Modifier
+                .width(104.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                .combinedClickable(onClick = onOpen, onLongClick = { menu = true })
+                .padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
+                Icon(Icons.Outlined.Folder, null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(22.dp))
+            }
+            Text(name, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        }
+        androidx.compose.material3.DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            androidx.compose.material3.DropdownMenuItem(text = { Text("Open") }, onClick = { menu = false; onOpen() })
+            androidx.compose.material3.DropdownMenuItem(text = { Text("Rename") }, onClick = { menu = false; onRename() })
+            androidx.compose.material3.DropdownMenuItem(text = { Text("Remove") }, onClick = { menu = false; onRemove() })
         }
     }
 }

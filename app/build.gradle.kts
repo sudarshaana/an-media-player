@@ -59,6 +59,7 @@ dependencies {
     implementation(libs.androidx.media3.cast)
     implementation(libs.androidx.mediarouter)
     implementation(libs.androidx.appcompat)
+    implementation("androidx.documentfile:documentfile:1.0.1")
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)

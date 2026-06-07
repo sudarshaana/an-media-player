@@ -75,11 +75,21 @@ data class SettingsActions(
     val onKeepScreenOn: (Boolean) -> Unit = {},
     val onWifiOnly: (Boolean) -> Unit = {},
     val onAppLock: (Boolean) -> Unit = {},
+    val onDownloadDir: (String?) -> Unit = {},
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(settings: AppSettings, actions: SettingsActions, modifier: Modifier = Modifier) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val pickDir = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) {
+            runCatching {
+                ctx.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            }
+            actions.onDownloadDir(uri.toString())
+        }
+    }
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = { TopAppBar(title = { Text("Settings") }, windowInsets = androidx.compose.foundation.layout.WindowInsets(0)) },
@@ -135,7 +145,7 @@ fun SettingsScreen(settings: AppSettings, actions: SettingsActions, modifier: Mo
                         Switch(checked = settings.wifiOnly, onCheckedChange = actions.onWifiOnly)
                     }
                     Div()
-                    RowInline(Icons.Outlined.Download, "Download location", "Internal storage · Movies/MediaBrowser") {
+                    RowInline(Icons.Outlined.Download, "Download location", downloadDirLabel(settings.downloadDir), onClick = { pickDir.launch(null) }) {
                         Icon(Icons.Outlined.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
@@ -161,8 +171,8 @@ private fun SettingGroup(label: String, content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun RowInline(icon: ImageVector, title: String, sub: String? = null, trailing: @Composable () -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+private fun RowInline(icon: ImageVector, title: String, sub: String? = null, onClick: (() -> Unit)? = null, trailing: @Composable () -> Unit) {
+    Row(Modifier.fillMaxWidth().then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier).padding(horizontal = 20.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
@@ -222,4 +232,10 @@ private fun AccentSwatch(color: Color, selected: Boolean, onClick: () -> Unit) {
     ) {
         if (selected) Icon(Icons.Filled.Check, "Selected", tint = Color.White, modifier = Modifier.size(18.dp))
     }
+}
+
+private fun downloadDirLabel(uri: String?): String {
+    if (uri == null) return "App storage · Movies"
+    val dec = android.net.Uri.decode(uri)
+    return dec.substringAfterLast(':').substringAfterLast('/').ifBlank { "Custom folder" }
 }

@@ -76,6 +76,8 @@ data class AppSettings(
     val keepScreenOn: Boolean = true,
     val wifiOnly: Boolean = true,
     val appLock: Boolean = false,
+    /** SAF tree URI for downloads. Null = app private storage. */
+    val downloadDir: String? = null,
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -94,6 +96,7 @@ class SettingsRepository(private val context: Context) {
         val KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
         val WIFI_ONLY = booleanPreferencesKey("wifi_only")
         val APP_LOCK = booleanPreferencesKey("app_lock")
+        val DOWNLOAD_DIR = stringPreferencesKey("download_dir")
     }
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { prefs ->
@@ -109,6 +112,7 @@ class SettingsRepository(private val context: Context) {
             keepScreenOn = prefs[Keys.KEEP_SCREEN_ON] ?: true,
             wifiOnly = prefs[Keys.WIFI_ONLY] ?: true,
             appLock = prefs[Keys.APP_LOCK] ?: false,
+            downloadDir = prefs[Keys.DOWNLOAD_DIR],
         )
     }
 
@@ -154,5 +158,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setAppLock(on: Boolean) {
         context.dataStore.edit { it[Keys.APP_LOCK] = on }
+    }
+
+    suspend fun setDownloadDir(uri: String?) {
+        context.dataStore.edit { if (uri == null) it.remove(Keys.DOWNLOAD_DIR) else it[Keys.DOWNLOAD_DIR] = uri }
     }
 }

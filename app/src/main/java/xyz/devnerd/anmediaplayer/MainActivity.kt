@@ -35,6 +35,7 @@ class MainActivity : AppCompatActivity() {
                         onKeepScreenOn = vm::setKeepScreenOn,
                         onWifiOnly = vm::setWifiOnly,
                         onAppLock = vm::setAppLock,
+                        onDownloadDir = vm::setDownloadDir,
                     ),
                 )
             }

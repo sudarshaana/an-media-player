@@ -128,6 +128,12 @@ fun BrowserScreen(
     var menuFor by remember { mutableStateOf<Entry?>(null) }
     var imageViewer by remember { mutableStateOf<String?>(null) }
     var refreshKey by remember { mutableIntStateOf(0) }
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val pinFolder: (Entry) -> Unit = { e ->
+        val pinned = AppRepo.isShortcut(serverId, path + e.name)
+        if (pinned) { AppRepo.removeShortcut("$serverId|${(path + e.name).joinToString("/")}"); android.widget.Toast.makeText(ctx, "Removed from Home", android.widget.Toast.LENGTH_SHORT).show() }
+        else { AppRepo.addShortcut(serverId, path + e.name, cleanTitle(e.name)); android.widget.Toast.makeText(ctx, "Pinned to Home", android.widget.Toast.LENGTH_SHORT).show() }
+    }
 
     LaunchedEffect(serverId, pathKey, refreshKey) {
         loading = true; errorMsg = null
@@ -277,6 +283,7 @@ fun BrowserScreen(
                             res = if (isVid) resFor(e.name) else null,
                             onClick = { open(e) },
                             onMenu = { menuFor = e },
+                            onLongClick = if (e.isDir) ({ pinFolder(e) }) else null,
                         )
                     }
                 }
@@ -314,6 +321,7 @@ fun BrowserScreen(
                             res = if (isVid) resFor(e.name) else null,
                             imageUrl = thumb,
                             onClick = { open(e) },
+                            onLongClick = if (e.isDir) ({ pinFolder(e) }) else null,
                         )
                     }
                 }

@@ -12,6 +12,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
@@ -46,10 +47,12 @@ object AppRepo {
     private val KEY_SERVERS = stringPreferencesKey("servers")
     private val KEY_BOOKMARKS = stringPreferencesKey("bookmarks")
     private val KEY_PROGRESS = stringPreferencesKey("progress")
+    private val KEY_SHORTCUTS = stringPreferencesKey("shortcuts")
 
     val servers = mutableStateListOf<Server>()
     val bookmarks = mutableStateListOf<Bookmark>()
     val progress = mutableStateMapOf<String, ProgressRecord>()
+    val shortcuts = mutableStateListOf<Shortcut>()
 
     fun init(context: Context) {
         ctx = context.applicationContext
@@ -59,7 +62,37 @@ object AppRepo {
             servers.addAll(parseServers(prefs[KEY_SERVERS]))
             bookmarks.addAll(parseBookmarks(prefs[KEY_BOOKMARKS]))
             progress.putAll(parseProgress(prefs[KEY_PROGRESS]))
+            shortcuts.addAll(parseShortcuts(prefs[KEY_SHORTCUTS]))
         }
+    }
+
+    // ── shortcuts (pinned folders on Home) ──
+    fun isShortcut(server: String, path: List<String>) = shortcuts.any { it.server == server && it.path == path }
+    fun addShortcut(server: String, path: List<String>, name: String) {
+        if (isShortcut(server, path)) return
+        shortcuts.add(Shortcut(server, path, name)); persistShortcuts()
+    }
+    fun removeShortcut(key: String) { shortcuts.removeAll { it.key == key }; persistShortcuts() }
+    fun renameShortcut(key: String, name: String) {
+        val i = shortcuts.indexOfFirst { it.key == key }
+        if (i >= 0) { shortcuts[i] = shortcuts[i].copy(name = name); persistShortcuts() }
+    }
+    private fun persistShortcuts() {
+        val snap = shortcuts.toList()
+        scope.launch { ctx.repoStore.edit { it[KEY_SHORTCUTS] = serializeShortcuts(snap) } }
+    }
+    private fun serializeShortcuts(list: List<Shortcut>) = JSONArray().apply {
+        list.forEach { put(JSONObject().apply { put("server", it.server); put("path", JSONArray(it.path)); put("name", it.name) }) }
+    }.toString()
+    private fun parseShortcuts(raw: String?): List<Shortcut> {
+        if (raw.isNullOrBlank()) return emptyList()
+        return runCatching {
+            val arr = JSONArray(raw)
+            (0 until arr.length()).map { i ->
+                val o = arr.getJSONObject(i); val pa = o.getJSONArray("path")
+                Shortcut(o.getString("server"), (0 until pa.length()).map { pa.getString(it) }, o.getString("name"))
+            }
+        }.getOrDefault(emptyList())
     }
 
     // ── servers ──
@@ -226,16 +259,20 @@ object ThumbCache {
     }
 }
 
-/** Real downloads via Android DownloadManager → app external Movies dir. Persisted. */
+/** Pausable downloads via OkHttp (HTTP Range resume) → app external Movies dir. Persisted. */
 object DownloadsStore {
     val items = mutableStateListOf<Download>()
     private lateinit var appCtx: Context
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val jobs = mutableMapOf<String, kotlinx.coroutines.Job>()
+    private val client = okhttp3.OkHttpClient()
     private val KEY_DOWNLOADS = stringPreferencesKey("downloads")
 
     fun init(context: Context) {
         appCtx = context.applicationContext
         runBlocking { items.addAll(parseDownloads(appCtx.repoStore.data.first()[KEY_DOWNLOADS])) }
+        // Jobs don't survive process death — show interrupted ones as paused (resumable).
+        items.toList().forEach { if (it.state == DownloadState.DOWNLOADING || it.state == DownloadState.QUEUED) update(it.id, DownloadState.PAUSED) }
     }
 
     private fun persist() {
@@ -244,63 +281,97 @@ object DownloadsStore {
         scope.launch { appCtx.repoStore.edit { it[KEY_DOWNLOADS] = serializeDownloads(snap) } }
     }
 
-    private fun dm(ctx: Context) = ctx.getSystemService(Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
+    private fun fileFor(file: String) = java.io.File(appCtx.getExternalFilesDir(android.os.Environment.DIRECTORY_MOVIES), file.replace(Regex("[^A-Za-z0-9._-]"), "_"))
 
-    fun enqueue(ctx: Context, server: String, path: List<String>, file: String, title: String, sub: String, size: Long, durSec: Int, url: String, wifiOnly: Boolean) {
+    fun enqueue(ctx: Context, server: String, path: List<String>, file: String, title: String, sub: String, size: Long, durSec: Int, url: String, wifiOnly: Boolean, destDir: String? = null) {
         if (url.isBlank()) return
         if (items.any { it.file == file && it.state != DownloadState.FAILED }) return
-        val safe = file.replace(Regex("[^A-Za-z0-9._-]"), "_")
-        val req = android.app.DownloadManager.Request(android.net.Uri.parse(url))
-            .setTitle(title)
-            .setDescription(sub)
-            .setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            .setDestinationInExternalFilesDir(ctx, android.os.Environment.DIRECTORY_MOVIES, safe)
-            .setAllowedOverMetered(!wifiOnly)
-            .setAllowedOverRoaming(false)
-        val id = runCatching { dm(ctx).enqueue(req) }.getOrNull() ?: return
-        items.add(Download("dl_$id", title, sub, file, size, DownloadState.DOWNLOADING, 0, null, server, path, durSec, id))
-        persist()
+        val id = "dl_${(server + path.joinToString("/") + file).hashCode()}"
+        items.add(Download(id, title, sub, file, size, DownloadState.QUEUED, 0, null, server, path, durSec, url, 0, null, destDir))
+        persist(); start(id)
     }
 
-    /** Poll DownloadManager and update item progress/state/localUri. */
-    fun refresh(ctx: Context) {
-        val active = items.filter { it.dmId != null && (it.state == DownloadState.DOWNLOADING || it.state == DownloadState.QUEUED) }
-        if (active.isEmpty()) return
-        val manager = dm(ctx)
-        for (d in active) {
-            val q = android.app.DownloadManager.Query().setFilterById(d.dmId!!)
-            runCatching {
-                manager.query(q).use { c ->
-                    if (!c.moveToFirst()) { update(d.id, DownloadState.FAILED); return@use }
-                    val status = c.getInt(c.getColumnIndexOrThrow(android.app.DownloadManager.COLUMN_STATUS))
-                    val done = c.getLong(c.getColumnIndexOrThrow(android.app.DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR))
-                    val total = c.getLong(c.getColumnIndexOrThrow(android.app.DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
-                    val pct = if (total > 0) (done * 100 / total).toInt() else 0
-                    when (status) {
-                        android.app.DownloadManager.STATUS_SUCCESSFUL -> {
-                            val uri = c.getString(c.getColumnIndexOrThrow(android.app.DownloadManager.COLUMN_LOCAL_URI))
-                            update(d.id, DownloadState.DONE, 100, "Just now", uri)
+    fun pause(id: String) { jobs.remove(id)?.cancel(); update(id, DownloadState.PAUSED) }
+    fun resume(id: String) { start(id) }
+
+    private fun start(id: String) {
+        if (jobs[id]?.isActive == true) return
+        update(id, DownloadState.DOWNLOADING)
+        jobs[id] = scope.launch {
+            runCatching { downloadLoop(id) }.onFailure {
+                if (it !is kotlinx.coroutines.CancellationException) update(id, DownloadState.FAILED)
+            }
+            jobs.remove(id)
+        }
+    }
+
+    private suspend fun downloadLoop(id: String) {
+        val d = items.firstOrNull { it.id == id } ?: return
+        val out = fileFor(d.file)
+        val have = if (out.exists()) out.length() else 0L
+        val req = okhttp3.Request.Builder().url(d.url).apply { if (have > 0) header("Range", "bytes=$have-") }.build()
+        client.newCall(req).execute().use { resp ->
+            if (!resp.isSuccessful) { update(id, DownloadState.FAILED); return }
+            val body = resp.body ?: run { update(id, DownloadState.FAILED); return }
+            val append = resp.code == 206
+            val base = if (append) have else 0L
+            val total = (if (append) base + body.contentLength() else body.contentLength()).let { if (it > 0) it else d.size }
+            java.io.FileOutputStream(out, append).use { sink ->
+                body.byteStream().use { input ->
+                    val buf = ByteArray(64 * 1024)
+                    var written = base
+                    var lastTick = base
+                    while (true) {
+                        val n = input.read(buf)
+                        if (n == -1) break
+                        if (!kotlinx.coroutines.currentCoroutineContext().isActive) { sink.flush(); return } // paused/cancelled → keep partial
+                        sink.write(buf, 0, n); written += n
+                        if (written - lastTick > 512 * 1024) {
+                            lastTick = written
+                            val pct = if (total > 0) (written * 100 / total).toInt().coerceIn(0, 100) else 0
+                            update(id, DownloadState.DOWNLOADING, pct, downloadedBytes = written)
                         }
-                        android.app.DownloadManager.STATUS_FAILED -> update(d.id, DownloadState.FAILED)
-                        android.app.DownloadManager.STATUS_PENDING, android.app.DownloadManager.STATUS_PAUSED -> update(d.id, DownloadState.QUEUED, pct)
-                        else -> update(d.id, DownloadState.DOWNLOADING, pct)
                     }
+                    sink.flush()
                 }
             }
+            // Move into the user's chosen folder (SAF) if set; else keep in app storage.
+            val finalUri = d.destDir?.let { tree ->
+                runCatching {
+                    val dir = androidx.documentfile.provider.DocumentFile.fromTreeUri(appCtx, android.net.Uri.parse(tree)) ?: return@runCatching null
+                    val doc = dir.createFile(mimeFor(d.file), d.file) ?: return@runCatching null
+                    appCtx.contentResolver.openOutputStream(doc.uri)?.use { os -> out.inputStream().use { it.copyTo(os) } }
+                    out.delete()
+                    doc.uri.toString()
+                }.getOrNull()
+            } ?: android.net.Uri.fromFile(out).toString()
+            update(id, DownloadState.DONE, 100, "Just now", localUri = finalUri, downloadedBytes = d.size)
         }
     }
 
-    private fun update(id: String, state: DownloadState, progress: Int? = null, whenLabel: String? = null, localUri: String? = null) {
+    private fun mimeFor(file: String) = when (file.substringAfterLast('.', "").lowercase()) {
+        "mp4", "m4v" -> "video/mp4"; "mkv" -> "video/x-matroska"; "avi" -> "video/x-msvideo"; "webm" -> "video/webm"
+        "jpg", "jpeg" -> "image/jpeg"; "png" -> "image/png"; "srt" -> "application/x-subrip"
+        else -> "application/octet-stream"
+    }
+
+    private fun update(id: String, state: DownloadState, progress: Int? = null, whenLabel: String? = null, localUri: String? = null, downloadedBytes: Long? = null) {
         val i = items.indexOfFirst { it.id == id }
-        if (i >= 0) {
-            val prev = items[i]
-            items[i] = prev.copy(state = state, progress = progress ?: prev.progress, whenLabel = whenLabel ?: prev.whenLabel, localUri = localUri ?: prev.localUri)
-            if (prev.state != state || prev.localUri != items[i].localUri) persist()
-        }
+        if (i < 0) return
+        val prev = items[i]
+        items[i] = prev.copy(
+            state = state,
+            progress = progress ?: prev.progress,
+            whenLabel = whenLabel ?: prev.whenLabel,
+            localUri = localUri ?: prev.localUri,
+            downloadedBytes = downloadedBytes ?: prev.downloadedBytes,
+        )
+        if (prev.state != state || prev.localUri != items[i].localUri) persist()
     }
 
     fun remove(ctx: Context, id: String) {
-        items.firstOrNull { it.id == id }?.dmId?.let { runCatching { dm(ctx).remove(it) } }
+        jobs.remove(id)?.cancel()
+        items.firstOrNull { it.id == id }?.let { runCatching { fileFor(it.file).delete() } }
         items.removeAll { it.id == id }
         persist()
     }
@@ -311,7 +382,7 @@ object DownloadsStore {
                 put("id", d.id); put("title", d.title); put("sub", d.sub); put("file", d.file)
                 put("size", d.size); put("state", d.state.name); put("progress", d.progress ?: JSONObject.NULL)
                 put("whenLabel", d.whenLabel ?: JSONObject.NULL); put("server", d.server); put("path", JSONArray(d.path))
-                put("durSec", d.durSec); put("dmId", d.dmId ?: JSONObject.NULL); put("localUri", d.localUri ?: JSONObject.NULL)
+                put("durSec", d.durSec); put("url", d.url); put("downloadedBytes", d.downloadedBytes); put("localUri", d.localUri ?: JSONObject.NULL); put("destDir", d.destDir ?: JSONObject.NULL)
             })
         }
     }.toString()
@@ -329,8 +400,9 @@ object DownloadsStore {
                     o.getLong("size"), DownloadState.valueOf(o.getString("state")),
                     if (o.isNull("progress")) null else o.getInt("progress"),
                     o.optString("whenLabel").ifBlank { null }, o.getString("server"), path, o.getInt("durSec"),
-                    if (o.isNull("dmId")) null else o.getLong("dmId"),
+                    o.optString("url"), o.optLong("downloadedBytes", 0),
                     o.optString("localUri").ifBlank { null },
+                    o.optString("destDir").ifBlank { null },
                 )
             }
         }.getOrDefault(emptyList())

@@ -2,7 +2,9 @@ package xyz.devnerd.anmediaplayer.ui.screens.browser
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -137,6 +139,7 @@ private fun LeadingTile(entry: Entry, artSeed: String?, thumbUrl: String?, watch
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun BrowseListRow(
     entry: Entry,
@@ -148,12 +151,13 @@ fun BrowseListRow(
     res: String?,
     onClick: () -> Unit,
     onMenu: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
 ) {
     Row(
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -193,6 +197,7 @@ fun BrowseListRow(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun BrowseGridCard(
     entry: Entry,
@@ -205,8 +210,9 @@ fun BrowseGridCard(
     res: String?,
     imageUrl: String?,
     onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
 ) {
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable(onClick = onClick)) {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).combinedClickable(onClick = onClick, onLongClick = onLongClick)) {
         Poster(
             seed = posterSeed,
             icon = icon,
