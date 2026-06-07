@@ -1,0 +1,2555 @@
+[
+  {
+    "name": "BUSINESS NETWORK (FTPBD) FTP SERVER",
+    "urls": [
+      "http://ftpbd.net",
+      "http://103.58.73.6",
+      "http://103.58.73.7",
+      "http://103.58.73.8",
+      "http://103.58.73.9",
+      "http://103.58.73.10",
+      "http://103.58.73.10:8096",
+      "http://server1.ftpbd.net",
+      "http://server1.ftpbd.net/FTP-1",
+      "http://server2.ftpbd.net",
+      "http://server2.ftpbd.net/FTP-2",
+      "http://server3.ftpbd.net",
+      "http://server3.ftpbd.net/FTP-3",
+      "http://server4.ftpbd.net",
+      "http://server4.ftpbd.net/FTP-4",
+      "http://server5.ftpbd.net",
+      "http://server5.ftpbd.net/FTP-5",
+      "http://media.ftpbd.net:8096"
+    ]
+  },
+  {
+    "name": "CIRCLE NETWORK FTP SERVER",
+    "urls": [
+      "http://103.170.204.84",
+      "http://new.circleftp.net",
+      "http://circleftp.net",
+      "http://15.1.1.4",
+      "http://ftp4.circleftp.net",
+      "http://15.1.1.5",
+      "http://old.circleftp.net",
+      "http://emby.circleftp.net:8096"
+    ]
+  },
+  {
+    "name": "SAM ONLINE FTP SERVER",
+    "urls": [
+      "http://172.16.50.4",
+      "http://172.16.50.7",
+      "http://movie.sambd.net:8096",
+      "https://samftp.com"
+    ]
+  },
+  {
+    "name": "COGENT BROADBAND (KHULNAFLIX) FTP SERVER",
+    "urls": [
+      "http://khulnaflix.net",
+      "http://103.153.175.254/NAS1",
+      "http://bokasoka.net",
+      "http://bokasoka.net/NAS1",
+      "http://file.khulnaflix.net"
+    ]
+  },
+  {
+    "name": "DISCOVERY INTERNET FTP SERVER",
+    "urls": [
+      "http://103.120.165.196",
+      "http://discoveryftp.net",
+      "http://dflix.discoveryftp.net",
+      "http://cds1.discoveryftp.net",
+      "http://cds2.discoveryftp.net",
+      "http://cds3.discoveryftp.net"
+    ]
+  },
+  {
+    "name": "ONE NET COMMUNICATIONS LIMITED (SHOWTIME) FTP SERVER",
+    "urls": [
+      "https://www.1netbd.com",
+      "http://10.100.100.10",
+      "http://103.77.252.113",
+      "http://www.showtimebd.com",
+      "http://10.100.100.12",
+      "http://10.100.100.13"
+    ]
+  },
+  {
+    "name": "DIGITAL DOT NET (CTGMOVIES) FTP SERVER",
+    "urls": [
+      "http://www.ddnbd.fun",
+      "http://ctgmovies.com",
+      "http://crazyctg.com",
+      "http://media.ctgfun.com"
+    ]
+  },
+  {
+    "name": "EXORD ONLINE (E-BOX LIVE) FTP SERVER",
+    "urls": [
+      "http://fs.ebox.live",
+      "http://103.49.168.107",
+      "http://fileserver.ebox.live",
+      "http://play.ebox.live"
+    ]
+  },
+  {
+    "name": "ICC COMMUNICATION LIMITED FTP SERVER",
+    "urls": [
+      "https://iccfios.net",
+      "https://icctalk.com",
+      "http://10.16.100.244",
+      "http://10.16.100.202/ftps10",
+      "http://10.16.100.206/ftps3",
+      "https://pastebin.com/VpXpmMjQ"
+    ]
+  },
+  {
+    "name": "ANTARANGA DOT COM LIMITED (DHAKAMOVIE) FTP SERVER",
+    "urls": [
+      "http://www.antbd.net",
+      "http://103.237.37.181",
+      "http://dhakamovie.com"
+    ]
+  },
+  {
+    "name": "X-PRESS TECHNOLOGIES LIMITED (NATURALBD) FTP SERVER",
+    "urls": [
+      "http://103.43.148.68",
+      "http://www.naturalbd.com"
+    ]
+  },
+  {
+    "name": "SKYVIEW ONLINE LIMITED (TIMEPASSBD) FTP SERVER",
+    "urls": [
+      "http://103.200.36.250",
+      "http://www.timepassbd.live",
+      "http://ftp.timepassbd.live"
+    ]
+  },
+  {
+    "name": "CITYCOM NETWORK (CITYCLOUD) FTP SERVER",
+    "urls": [
+      "http://11.11.11.11",
+      "http://103.204.244.70",
+      "http://103.204.244.70/Data/Data"
+    ]
+  },
+  {
+    "name": "CARNIVAL INTERNET (NAGORDOLA) FTP SERVER",
+    "urls": [
+      "http://103.106.238.74:80/Data",
+      "http://103.106.238.74:80/Data4",
+      "http://www.nagordola.com.bd"
+    ]
+  },
+  {
+    "name": "TRIANGLE SERVICES LIMITED (ELAACH) FTP SERVER",
+    "urls": [
+      "http://www.elaach.com"
+    ]
+  },
+  {
+    "name": "UNIQUE INTERNET FTP SERVER",
+    "urls": [
+      "http://103.91.144.230",
+      "http://103.91.144.230/ftpdata",
+      "http://www.uniquedownloadbd.com"
+    ]
+  },
+  {
+    "name": "SUN ONLINE (SURZOMAMA) FTP SERVER",
+    "urls": [
+      "http://103.85.235.254",
+      "http://103.85.235.254/storage"
+    ]
+  },
+  {
+    "name": "MOJALOSS FTP SERVER",
+    "urls": [
+      "https://www.mojaloss.stream"
+    ]
+  },
+  {
+    "name": "FNFONLINE FTP SERVER",
+    "urls": [
+      "https://fnfonline.wixsite.com/fnfonline",
+      "http://103.82.8.194",
+      "http://103.82.8.194/Data",
+      "http://movies.fnfonlinebd.com"
+    ]
+  },
+  {
+    "name": "DESHNET BROADBAND FTP SERVER",
+    "urls": [
+      "http://103.152.18.18",
+      "http://103.152.18.18/Data"
+    ]
+  },
+  {
+    "name": "INSPIRE BROADBAND (IHUB) FTP SERVER",
+    "urls": [
+      "http://ihub.live",
+      "http://sg-cdn.ihub.live:8787/download/games"
+    ]
+  },
+  {
+    "name": "CHITTAGONG ONLINE LIMITED FTP SERVER",
+    "urls": [
+      "https://fiber.colbd.com",
+      "http://www.smartflix.digital",
+      "http://www.smartstudio.digital",
+      "http://metromedia.digital"
+    ]
+  },
+  {
+    "name": "CLOUDONE INTERNET FTP SERVER",
+    "urls": [
+      "http://www.c1movies.com",
+      "http://bdmovies.net"
+    ]
+  },
+  {
+    "name": "LINK TECHNOLOGIES FTP SERVER",
+    "urls": [
+      "http://play.linkftp.com",
+      "http://cdn.linkftp.com"
+    ]
+  },
+  {
+    "name": "TAJPATA FTP SERVER",
+    "urls": [
+      "http://tajpata.com",
+      "http://103.14.129.246/data",
+      "http://file.tajpata.com"
+    ]
+  },
+  {
+    "name": "KS NETWORK LIMITED (WOW MOVIE ZONE) FTP SERVER",
+    "urls": [
+      "http://172.27.27.83",
+      "http://172.27.27.84",
+      "http://172.27.27.26//2TB4",
+      "http://172.27.27.124/s1d1",
+      "http://172.27.27.244/2TB1",
+      "http://172.27.27.245/2TB1",
+      "http://172.27.27.248/2TB1",
+      "http://172.27.27.250/2TB1",
+      "http://172.27.27.251/2TB2",
+      "http://172.27.27.252/2TB2"
+    ]
+  },
+  {
+    "name": "MAZEDA NETWORK FTP SERVER",
+    "urls": [
+      "http://172.22.22.100",
+      "http://172.22.22.101",
+      "http://ftpweb.mazedanetworks.net",
+      "http://172.22.22.105:8096"
+    ]
+  },
+  {
+    "name": "VISION TECHNOLOGIES LIMITED (SUNPLEX) FTP SERVER",
+    "urls": [
+      "https://sunplex.net",
+      "https://storage.sunplex.net"
+    ]
+  },
+  {
+    "name": "FUTURE.NET (MOVIEMELA) FTP SERVER",
+    "urls": [
+      "http://www.moviemela.live"
+    ]
+  },
+  {
+    "name": "AMARNET SYSTEM (DHAKAFTP) FTP SERVER",
+    "urls": [
+      "http://103.205.233.70",
+      "http://103.205.233.70/Data",
+      "http://dhakaftp.com",
+      "http://dhakaftp.com/Data"
+    ]
+  },
+  {
+    "name": "FREEDOWNLOADBD FTP SERVER",
+    "urls": [
+      "http://www.freedownloadbd.com"
+    ]
+  },
+  {
+    "name": "DHAKA FIBER NET FTP SERVER",
+    "urls": [
+      "http://media.dfnbd.net"
+    ]
+  },
+  {
+    "name": "MC BROADBAND FTP SERVER",
+    "urls": [
+      "http://172.17.254.2"
+    ]
+  },
+  {
+    "name": "PLANET 3 COMMUNICATION (CANDYBD) FTP SERVER",
+    "urls": [
+      "http://www.candybd.net",
+      "http://candybd.net/upload/source/movies"
+    ]
+  },
+  {
+    "name": "MILLENNIUM COMPUTERS & NETWORK FTP SERVER",
+    "urls": [
+      "http://ftp.mcnbd.com",
+      "http://fun.mcnbd.com",
+      "https://sites.google.com/view/mcnbdix"
+    ]
+  },
+  {
+    "name": "POLLYFLIX & AMRBD FTP SERVER",
+    "urls": [
+      "http://12.1.1.3/flix",
+      "http://pollyflix.com",
+      "http://fs.amrbd.com",
+      "http://fs2.amrbd.com"
+    ]
+  },
+  {
+    "name": "SPEED TECH ONLINE (TIMENAI) FTP SERVER",
+    "urls": [
+      "http://103.199.155.150",
+      "http://103.199.155.150/ftpdata",
+      "http://timenai.com"
+    ]
+  },
+  {
+    "name": "DNETBD FTP SERVER",
+    "urls": [
+      "http://103.76.196.90",
+      "https://dnetdrive.com"
+    ]
+  },
+  {
+    "name": "RANGDHANU LIVE FTP SERVER",
+    "urls": [
+      "http://fs.rangdhanu.live",
+      "http://emby.rangdhanu.live"
+    ]
+  },
+  {
+    "name": "RACE ONLINE LIMITED (MOVIEDOM & MOVIEHAAT) FTP SERVER",
+    "urls": [
+      "http://moviedom.live",
+      "http://movie.moviedom.live",
+      "http://movie.moviedom.live/Data",
+      "http://59.152.101.198",
+      "http://moviehaat.net",
+      "http://cdn2.moviehaat.net:8080/Upload"
+    ]
+  },
+  {
+    "name": "DOT INTERNET FTP SERVER",
+    "urls": [
+      "http://dflix.live",
+      "http://fs1.dflix.live"
+    ]
+  },
+  {
+    "name": "SKYINFO ONLINE (MOVIEMAJA) FTP SERVER",
+    "urls": [
+      "http://103.132.187.18",
+      "http://103.132.187.18/Data",
+      "http://moviemaja.net",
+      "http://moviemaja.net/Data"
+    ]
+  },
+  {
+    "name": "SEBA IT FTP SERVER",
+    "urls": [
+      "http://103.195.1.50/Data"
+    ]
+  },
+  {
+    "name": "BOT-TOLA CYBER (FTPMEDIA.NET) NET FTP SERVER",
+    "urls": [
+      "http://10.1.1.1/Data"
+    ]
+  },
+  {
+    "name": "CITY ONLINE LIMITED (IBDPLEX) FTP SERVER",
+    "urls": [
+      "http://moviebazar.net",
+      "https://ibdplex.net"
+    ]
+  },
+  {
+    "name": "GLOBAL COMMUNICATION FTP SERVER",
+    "urls": [
+      "http://103.113.16.46",
+      "http://103.113.16.46/Data"
+    ]
+  },
+  {
+    "name": "RADISSON TECHNOLOGIES (FLIXHUB) FTP SERVER",
+    "urls": [
+      "http://45.123.41.54",
+      "http://45.123.41.54/Data",
+      "http://flixhub.net",
+      "http://flixhub.net/Data"
+    ]
+  },
+  {
+    "name": "EMPOWERING NET (ABCMOVIES) FTP SERVER",
+    "urls": [
+      "http://103.103.239.66",
+      "http://abcmoviesbd.com",
+      "http://abcflixbd.com"
+    ]
+  },
+  {
+    "name": "ZEROONE ONLINE (CTGOZ) FTP SERVER",
+    "urls": [
+      "http://ctgoz.com"
+    ]
+  },
+  {
+    "name": "BRISK SYSTEMS INTERNET FTP SERVER",
+    "urls": [
+      "http://smiledotnet.xyz",
+      "http://blurays2u.smiledotnet.xyz"
+    ]
+  },
+  {
+    "name": "ALPHAMEDIAZONE FTP SERVER",
+    "urls": [
+      "http://ftp.alphamediazone.com"
+    ]
+  },
+  {
+    "name": "ASIAN COMMUNICATION FTP SERVER",
+    "urls": [
+      "http://asianftp.com"
+    ]
+  },
+  {
+    "name": "AFTAB NAGAR ONLINE SERVICE FTP SERVER",
+    "urls": [
+      "https://www.anosbd.com/ftp"
+    ]
+  },
+  {
+    "name": "ASIAN NETWORK FTP SERVER",
+    "urls": [
+      "https://allserver.yolasite.com"
+    ]
+  },
+  {
+    "name": "ALIFANET FTP SERVER",
+    "urls": [
+      "https://alifanet.com"
+    ]
+  },
+  {
+    "name": "ARAF NET FTP SERVER",
+    "urls": [
+      "http://www.arafnetbd.com"
+    ]
+  },
+  {
+    "name": "APPLENET BROADBAND FTP SERVER",
+    "urls": [
+      "https://www.applenetbd.com"
+    ]
+  },
+  {
+    "name": "ACTIVE MULTIMEDIA FTP SERVER",
+    "urls": [
+      "https://activembd.com/internet/ftp-server"
+    ]
+  },
+  {
+    "name": "AG COMMUNICATION FTP SERVER",
+    "urls": [
+      "http://www.agcommunication.net"
+    ]
+  },
+  {
+    "name": "AMBERIT FTP SERVER",
+    "urls": [
+      "http://202.4.96.121",
+      "http://www.binodonmela.net",
+      "http://118.179.223.51",
+      "http://content2.binodonmela.net"
+    ]
+  },
+  {
+    "name": "A1CYBERLINK FTP SERVER",
+    "urls": [
+      "http://www.a1cyberlinkbd.com"
+    ]
+  },
+  {
+    "name": "ARISHA NET FTP SERVER",
+    "urls": [
+      "http://arishabd.net"
+    ]
+  },
+  {
+    "name": "ACHIEVER BROADBAND INTERNET FTP SERVER",
+    "urls": [
+      "https://abibd.com"
+    ]
+  },
+  {
+    "name": "AVABD NETWORK FTP SERVER",
+    "urls": [
+      "http://www.avabdnet.com"
+    ]
+  },
+  {
+    "name": "APPLELINK INTERNET FTP SERVER",
+    "urls": [
+      "https://applelinkbd.net"
+    ]
+  },
+  {
+    "name": "AUTOMATION SYSTEM INTERNET FTP SERVER",
+    "urls": [
+      "http://www.as-bd.net"
+    ]
+  },
+  {
+    "name": "ALIBABA NETWORK FTP SERVER",
+    "urls": [
+      "https://www.alibabanetwork.net"
+    ]
+  },
+  {
+    "name": "AKKADUKKA FTP SERVER",
+    "urls": [
+      "http://akkadukka.com",
+      "http://akkadukka.com:8096"
+    ]
+  },
+  {
+    "name": "ABN INTERNET FTP SERVER",
+    "urls": [
+      "https://www.abnctg.net"
+    ]
+  },
+  {
+    "name": "ASB LINK INTERNET FTP SERVER",
+    "urls": [
+      "http://www.asblink.net"
+    ]
+  },
+  {
+    "name": "ASMA BROADBAND NETWORK FTP SERVER",
+    "urls": [
+      "http://220.152.114.214"
+    ]
+  },
+  {
+    "name": "ADDA NETWORK FTP SERVER",
+    "urls": [
+      "https://addanetwork.net"
+    ]
+  },
+  {
+    "name": "AKNETWORKS FTP SERVER",
+    "urls": [
+      "http://aktube.live"
+    ]
+  },
+  {
+    "name": "AMADER NET ADD COMMUNICATION FTP SERVER",
+    "urls": [
+      "http://amaderftp.net"
+    ]
+  },
+  {
+    "name": "ACTIVE NETWORK FTP SERVER",
+    "urls": [
+      "http://www.activenetworkbd.com"
+    ]
+  },
+  {
+    "name": "BOSSBD FTP SERVER",
+    "urls": [
+      "http://bossbd.live",
+      "http://cdn.bossbd.net",
+      "http://cdn1.bossbd.net",
+      "http://cdn2.bossbd.net"
+    ]
+  },
+  {
+    "name": "BDLAN FTP SERVER",
+    "urls": [
+      "http://www.bdlan.net"
+    ]
+  },
+  {
+    "name": "BIT NET BROADBAND FTP SERVER",
+    "urls": [
+      "http://www.bitnetbd.com"
+    ]
+  },
+  {
+    "name": "BOLMOVIES FTP SERVER",
+    "urls": [
+      "http://www.bolmovies.com"
+    ]
+  },
+  {
+    "name": "BARNALINET FTP SERVER",
+    "urls": [
+      "http://103.112.63.21"
+    ]
+  },
+  {
+    "name": "BONSAIHD FTP SERVER",
+    "urls": [
+      "https://bonsaihd.live"
+    ]
+  },
+  {
+    "name": "BAS NETWORK FTP SERVER",
+    "urls": [
+      "http://103.87.212.46",
+      "http://10.20.30.40",
+      "http://movie.basnetbd.com"
+    ]
+  },
+  {
+    "name": "BAIZID ONLINE FTP SERVER",
+    "urls": [
+      "http://mars.bolbd.net"
+    ]
+  },
+  {
+    "name": "BOGRA ONLINE FTP SERVER",
+    "urls": [
+      "http://www.bograonlinebd.com"
+    ]
+  },
+  {
+    "name": "BEEFLIX FTP SERVER",
+    "urls": [
+      "http://www.beeflix.biz"
+    ]
+  },
+  {
+    "name": "BM NETWORK FTP SERVER",
+    "urls": [
+      "https://www.bmnetworkbd.tk"
+    ]
+  },
+  {
+    "name": "BONDHUIT NET FTP SERVER",
+    "urls": [
+      "https://bondhuitbd.com"
+    ]
+  },
+  {
+    "name": "BMIT FTP SERVER",
+    "urls": [
+      "http://bmitbd.com"
+    ]
+  },
+  {
+    "name": "BHUIYAN TELECOM FTP SERVER",
+    "urls": [
+      "http://www.bhuiyan-online.com"
+    ]
+  },
+  {
+    "name": "BDPLEX FTP SERVER",
+    "urls": [
+      "http://bdplex.net"
+    ]
+  },
+  {
+    "name": "BUSINESS ZONE LIMITED FTP SERVER",
+    "urls": [
+      "http://103.117.229.242",
+      "http://103.117.229.242/Data",
+      "http://bdcineplex.com"
+    ]
+  },
+  {
+    "name": "BDFLIX LIVE FTP SERVER",
+    "urls": [
+      "https://bdflixlive.com"
+    ]
+  },
+  {
+    "name": "BHALUKA BROADBAND INTERNET FTP SERVER",
+    "urls": [
+      "https://bhalukabroadband.com"
+    ]
+  },
+  {
+    "name": "BINIMOY NET FTP SERVER",
+    "urls": [
+      "https://binimoynet.com"
+    ]
+  },
+  {
+    "name": "BEACONLINK FTP SERVER",
+    "urls": [
+      "http://www.beaconlink.net"
+    ]
+  },
+  {
+    "name": "BDM INTERNET FTP SERVER",
+    "urls": [
+      "http://www.bdminternet.com"
+    ]
+  },
+  {
+    "name": "CHITTAGONG MULTI CHANNEL LIMITED FTP SERVER",
+    "urls": [
+      "http://tokis.xyz"
+    ]
+  },
+  {
+    "name": "SK TRADERS (CINEMABAZER) FTP SERVER",
+    "urls": [
+      "http://103.81.104.98",
+      "http://103.81.104.98/DATA/NAS1",
+      "http://cinemabazar.net",
+      "http://cinemabazar.net/DATA/NAS1"
+    ]
+  },
+  {
+    "name": "CINEBIOSCOPE FTP SERVER",
+    "urls": [
+      "http://www.cinebioscope.com"
+    ]
+  },
+  {
+    "name": "CYBER NET FTP SERVER",
+    "urls": [
+      "https://www.cybernetbd.com"
+    ]
+  },
+  {
+    "name": "CNETWORK FTP SERVER",
+    "urls": [
+      "https://cnetworkbd.net"
+    ]
+  },
+  {
+    "name": "CYBERNEST NETWORK FTP SERVER",
+    "urls": [
+      "http://www.mycybernest.com"
+    ]
+  },
+  {
+    "name": "CUECLUB TECHNOLOGY FTP SERVER",
+    "urls": [
+      "https://cueclub.com.bd"
+    ]
+  },
+  {
+    "name": "CRAZYNET FTP SERVER",
+    "urls": [
+      "https://crazynetbd.com"
+    ]
+  },
+  {
+    "name": "CITYNET FTP SERVER",
+    "urls": [
+      "http://citynetbd.com"
+    ]
+  },
+  {
+    "name": "CITYNET INTERNET FTP SERVER",
+    "urls": [
+      "https://www.citynet.live"
+    ]
+  },
+  {
+    "name": "CTGTEL FTP SERVER",
+    "urls": [
+      "http://www.ctgtel.net"
+    ]
+  },
+  {
+    "name": "C&C COMMUNICATION FTP SERVER",
+    "urls": [
+      "http://cnc.net.bd"
+    ]
+  },
+  {
+    "name": "CLICK ONLINE FTP SERVER",
+    "urls": [
+      "https://clickonlinebd.com"
+    ]
+  },
+  {
+    "name": "CYBER NET COMMUNICATIONS FTP SERVER",
+    "urls": [
+      "http://www.cybernetcommunications.net"
+    ]
+  },
+  {
+    "name": "CHOMOK CABLE NETWORK FTP SERVER",
+    "urls": [
+      "https://ccn5050.wixsite.com/5050"
+    ]
+  },
+  {
+    "name": "CREATIVAIT NET FTP SERVER",
+    "urls": [
+      "http://10.10.10.10"
+    ]
+  },
+  {
+    "name": "CHOCOLATE BROADBAND FTP SERVER",
+    "urls": [
+      "http://cineflixbd.xyz"
+    ]
+  },
+  {
+    "name": "CYGNUS.NET FTP SERVER",
+    "urls": [
+      "https://www.cygnusall.com"
+    ]
+  },
+  {
+    "name": "CRESCENT NETWORK SERVICE FTP SERVER",
+    "urls": [
+      "http://cns.net.bd"
+    ]
+  },
+  {
+    "name": "DAULATPUR ONLINE (KHULNAPLEX) FTP SERVER",
+    "urls": [
+      "http://khulnaplex.net",
+      "http://khulnaplex.net/Data"
+    ]
+  },
+  {
+    "name": "DREAMNET FTP SERVER",
+    "urls": [
+      "http://bddreamnet.blogspot.com"
+    ]
+  },
+  {
+    "name": "DESHONLINEBD FTP SERVER",
+    "urls": [
+      "http://deshonlinebd.com"
+    ]
+  },
+  {
+    "name": "DHAKA DOWNLOAD FTP SERVER",
+    "urls": [
+      "http://dhakaiptv.com"
+    ]
+  },
+  {
+    "name": "DIGITAL COMMUNCATION FTP SERVER",
+    "urls": [
+      "https://digitalbroadband.com.bd"
+    ]
+  },
+  {
+    "name": "XPLORE CYBER & NET (DHAKA MOVIE ZONE) FTP SERVER",
+    "urls": [
+      "http://103.96.104.14/d_drive"
+    ]
+  },
+  {
+    "name": "DIGINET INTERNET FTP SERVER",
+    "urls": [
+      "http://diginetbd.net"
+    ]
+  },
+  {
+    "name": "DIT NET FTP SERVER",
+    "urls": [
+      "http://172.27.100.3"
+    ]
+  },
+  {
+    "name": "DOLY IT CORNER FTP SERVER",
+    "urls": [
+      "http://172.17.17.17"
+    ]
+  },
+  {
+    "name": "DURANTO BROADBAND NETWORK FTP SERVER",
+    "urls": [
+      "http://www.durantonetworkbd.com"
+    ]
+  },
+  {
+    "name": "DIDAR IT FTP SERVER",
+    "urls": [
+      "https://www.didarit.com"
+    ]
+  },
+  {
+    "name": "DEKHO FTP SERVER",
+    "urls": [
+      "https://dekhobd.com"
+    ]
+  },
+  {
+    "name": "DL NETWORK SERVICES FTP SERVER",
+    "urls": [
+      "http://dlnsbd.net"
+    ]
+  },
+  {
+    "name": "EVOLUTION FTP SERVER",
+    "urls": [
+      "http://www.evonetbd.com",
+      "http://103.25.120.118",
+      "http://fs.evonetbd.com"
+    ]
+  },
+  {
+    "name": "EASYIT FTP SERVER",
+    "urls": [
+      "https://easyitbd.com"
+    ]
+  },
+  {
+    "name": "EXPLORE ONLINE FTP SERVER",
+    "urls": [
+      "http://103.222.20.150",
+      "http://103.222.20.150/ftpdata"
+    ]
+  },
+  {
+    "name": "EMPOWERING NET FTP SERVER",
+    "urls": [
+      "https://epnetbd.com"
+    ]
+  },
+  {
+    "name": "ECTLINK FTP SERVER",
+    "urls": [
+      "http://download.ectlink.com"
+    ]
+  },
+  {
+    "name": "ENJOY NETWORK FTP SERVER",
+    "urls": [
+      "http://103.115.82.254"
+    ]
+  },
+  {
+    "name": "EKUSHE NET FTP SERVER",
+    "urls": [
+      "http://10.100.100.2:8096"
+    ]
+  },
+  {
+    "name": "EARTH ZONE INTERNET FTP SERVER",
+    "urls": [
+      "http://43.246.200.82:8081"
+    ]
+  },
+  {
+    "name": "EXTREME NET FTP SERVER",
+    "urls": [
+      "http://203.96.191.70",
+      "http://203.96.191.70/Data",
+      "http://plexbd.net",
+      "http://plexbd.net/Data"
+    ]
+  },
+  {
+    "name": "E-VILLAGE INTERNET FTP SERVER",
+    "urls": [
+      "http://www.ctgflix.com",
+      "http://fs.evillagectg.com",
+      "http://www.ctghall.com",
+      "http://www.ctgstream.com"
+    ]
+  },
+  {
+    "name": "REIGN ICT (FUNTIMEBD) FTP SERVER",
+    "urls": [
+      "http://funtimebd.com"
+    ]
+  },
+  {
+    "name": "FASTWAY FTP SERVER",
+    "urls": [
+      "http://ftp.com.bd"
+    ]
+  },
+  {
+    "name": "FURIOUS INTERNET FTP SERVER",
+    "urls": [
+      "http://media.furiousnet.net"
+    ]
+  },
+  {
+    "name": "FASTNET BD FTP SERVER",
+    "urls": [
+      "https://fastplex.net"
+    ]
+  },
+  {
+    "name": "FUTURENET FTP SERVER",
+    "urls": [
+      "http://www.fnetctg.com/index.php/bdix-list"
+    ]
+  },
+  {
+    "name": "FLASHNET FTP SERVER",
+    "urls": [
+      "http://flashnetbd.com"
+    ]
+  },
+  {
+    "name": "FOCUS ONLINE FTP SERVER",
+    "urls": [
+      "http://www.focusonlinectg.com"
+    ]
+  },
+  {
+    "name": "FIS NETWORK FTP SERVER",
+    "urls": [
+      "https://istiak-tushar42.github.io/FIS-Network"
+    ]
+  },
+  {
+    "name": "FUTURE TECH INTERNET FTP SERVER",
+    "urls": [
+      "https://fti.com.bd"
+    ]
+  },
+  {
+    "name": "FREEDOM ONLINE FTP SERVER",
+    "urls": [
+      "http://www.freedomonlinebd.com"
+    ]
+  },
+  {
+    "name": "F4 INTERNET SOLUTIONS FTP SERVER",
+    "urls": [
+      "http://172.2.2.2",
+      "http://f4cineplex.myftp.org"
+    ]
+  },
+  {
+    "name": "FNF ONLINE CTG FTP SERVER",
+    "urls": [
+      "http://www.fnfbd.net"
+    ]
+  },
+  {
+    "name": "FRIENDS ONLINE FTP SERVER",
+    "urls": [
+      "http://www.friendsonlinebd.com"
+    ]
+  },
+  {
+    "name": "FASTNET FTP SERVER",
+    "urls": [
+      "https://fastnetbd.org"
+    ]
+  },
+  {
+    "name": "FASTNET ONLINE FTP SERVER",
+    "urls": [
+      "http://192.168.100.5/fastnet"
+    ]
+  },
+  {
+    "name": "FILMGURO FTP SERVER",
+    "urls": [
+      "http://filmguro.site"
+    ]
+  },
+  {
+    "name": "FLYNET INTERNET FTP SERVER",
+    "urls": [
+      "https://www.flynetbd.com"
+    ]
+  },
+  {
+    "name": "FASTCYBER NETWORK FTP SERVER",
+    "urls": [
+      "https://www.fastcyber.net"
+    ]
+  },
+  {
+    "name": "FLIXJAR FTP SERVER",
+    "urls": [
+      "https://www.flixjar.com"
+    ]
+  },
+  {
+    "name": "BENGAL BROADBAND LIMITED (FREE MEDIA) FTP SERVER",
+    "urls": [
+      "http://www.prisma.net.bd",
+      "http://124.6.236.254",
+      "http://124.6.236.254/ftpdata1",
+      "http://124.6.236.254:8080",
+      "http://www.freemediabd.com"
+    ]
+  },
+  {
+    "name": "FUTURE NET SOLUTION FTP SERVER",
+    "urls": [
+      "http://www.futurenet-bd.com"
+    ]
+  },
+  {
+    "name": "FRIENDS CABLE NET FTP SERVER",
+    "urls": [
+      "http://fcnetbd.net"
+    ]
+  },
+  {
+    "name": "FRC BROADBAND INTERNET FTP SERVER",
+    "urls": [
+      "https://frcbd.net",
+      "http://s-flix.live",
+      "http://play.s-flix.live",
+      "http://cdn.s-flix.live"
+    ]
+  },
+  {
+    "name": "FIBERX FTP SERVER",
+    "urls": [
+      "http://fiberx.me"
+    ]
+  },
+  {
+    "name": "FM NETWORK FTP SERVER",
+    "urls": [
+      "https://fmnetworks.net"
+    ]
+  },
+  {
+    "name": "FIBERNET NETWORK FTP SERVER",
+    "urls": [
+      "http://www.fnet.com.bd"
+    ]
+  },
+  {
+    "name": "GPISP FTP SERVER",
+    "urls": [
+      "http://gpisp.net"
+    ]
+  },
+  {
+    "name": "GREETINGS ONLINE FTP SERVER",
+    "urls": [
+      "http://103.133.175.242/80",
+      "http://103.133.175.242/80/wp-content"
+    ]
+  },
+  {
+    "name": "GAIBANDHA ONLINE FTP SERVER",
+    "urls": [
+      "https://103.91.53.248"
+    ]
+  },
+  {
+    "name": "GHATAIL ONLINE FTP SERVER",
+    "urls": [
+      "http://ghatailonline.net"
+    ]
+  },
+  {
+    "name": "GALAXY NETWORK FTP SERVER",
+    "urls": [
+      "https://www.gnetworkbd.com"
+    ]
+  },
+  {
+    "name": "GNET INTERNET FTP SERVER",
+    "urls": [
+      "https://www.gnetinternet.com"
+    ]
+  },
+  {
+    "name": "GK NETWORK FTP SERVER",
+    "urls": [
+      "https://gk-network.net"
+    ]
+  },
+  {
+    "name": "GAZIPUR NETWORK SYSTEM FTP SERVER",
+    "urls": [
+      "https://gazipurns.webs.com"
+    ]
+  },
+  {
+    "name": "GREEN BYTES FTP SERVER",
+    "urls": [
+      "https://greenbytes.net.bd/ftp-bdix"
+    ]
+  },
+  {
+    "name": "GUNGCHIL BROADBAND INTERNET FTP SERVER",
+    "urls": [
+      "https://www.gungchil.net"
+    ]
+  },
+  {
+    "name": "GENIOUS NET FTP SERVER",
+    "urls": [
+      "http://downloads.geniousnet.com"
+    ]
+  },
+  {
+    "name": "HITECH ONLINE FTP SERVER",
+    "urls": [
+      "http://bdix.hitechisp.com"
+    ]
+  },
+  {
+    "name": "HK ONLINE FTP SERVER",
+    "urls": [
+      "https://www.hkonline.com.bd"
+    ]
+  },
+  {
+    "name": "BDCONNECT.NET LIMITED (HASIKHUSHI) FTP SERVER",
+    "urls": [
+      "https://hasikhushi.net"
+    ]
+  },
+  {
+    "name": "HILSABD BROADBAND NETWORK FTP SERVER",
+    "urls": [
+      "http://203.190.8.210"
+    ]
+  },
+  {
+    "name": "HOST XY FTP SERVER",
+    "urls": [
+      "http://hostxy.com"
+    ]
+  },
+  {
+    "name": "HELLO IT FTP SERVER",
+    "urls": [
+      "https://helloitbd.com/category/all-server-list"
+    ]
+  },
+  {
+    "name": "HALUM FTP SERVER",
+    "urls": [
+      "http://103.156.66.58/m4t1",
+      "http://halum.net"
+    ]
+  },
+  {
+    "name": "HORIZON & ASSOCIATES INTERNET FTP SERVER",
+    "urls": [
+      "http://www.net2bd.com"
+    ]
+  },
+  {
+    "name": "IFLIX FTP SERVER",
+    "urls": [
+      "https://www.iflix.com"
+    ]
+  },
+  {
+    "name": "ITBASE ISP FTP SERVER",
+    "urls": [
+      "http://www.itbasebd.com"
+    ]
+  },
+  {
+    "name": "IM ONLINE FTP SERVER",
+    "urls": [
+      "http://imonlineisp.net"
+    ]
+  },
+  {
+    "name": "INTEPID BROADBAND COMMUNICATION COMPANY LIMITED FTP SERVER",
+    "urls": [
+      "http://103.203.94.1:8065"
+    ]
+  },
+  {
+    "name": "INOX NET COMMUNICATION FTP SERVER",
+    "urls": [
+      "http://inoxbd.com"
+    ]
+  },
+  {
+    "name": "ISMART BROADBAND FTP SERVER",
+    "urls": [
+      "https://ismart.net.bd"
+    ]
+  },
+  {
+    "name": "INTERNET ZONE FTP SERVER",
+    "urls": [
+      "https://internetzonebd.com"
+    ]
+  },
+  {
+    "name": "ITM AND COMMUNICATIONS FTP SERVER",
+    "urls": [
+      "http://103.151.118.10"
+    ]
+  },
+  {
+    "name": "ICOMMUNICATION BROADBAND (IBOX) FTP SERVER",
+    "urls": [
+      "https://iboxbd.club",
+      "http://103.135.208.2",
+      "http://103.135.208.2/Data",
+      "http://iboxbd.online",
+      "http://iboxbd.online/Data"
+    ]
+  },
+  {
+    "name": "IFRA NETWORK FTP SERVER",
+    "urls": [
+      "http://103.110.126.146:8000"
+    ]
+  },
+  {
+    "name": "INFOLINK FTP SERVER",
+    "urls": [
+      "https://infolinkbd.com"
+    ]
+  },
+  {
+    "name": "ITNETZONE FTP SERVER",
+    "urls": [
+      "https://itnetzone.com"
+    ]
+  },
+  {
+    "name": "INTREPID INTERNET FTP SERVER",
+    "urls": [
+      "http://192.168.100.16",
+      "http://192.168.100.16:8096"
+    ]
+  },
+  {
+    "name": "INFOBD24 SYSTEMS FTP SERVER",
+    "urls": [
+      "http://chayachobi.net"
+    ]
+  },
+  {
+    "name": "IT CONNECTION FTP SERVER",
+    "urls": [
+      "http://bdix.itcnbd.com"
+    ]
+  },
+  {
+    "name": "IBD COMMUNICATION FTP SERVER",
+    "urls": [
+      "http://www.ibd.net.bd"
+    ]
+  },
+  {
+    "name": "INET FTP SERVER",
+    "urls": [
+      "https://inetisp.net"
+    ]
+  },
+  {
+    "name": "INFO INTERNET SERVICE FTP SERVER",
+    "urls": [
+      "http://10.28.22.2"
+    ]
+  },
+  {
+    "name": "IRANET FTP SERVER",
+    "urls": [
+      "https://www.iranetbd.com"
+    ]
+  },
+  {
+    "name": "COMPUTER COMPLEX NETWORK (JDIX) FTP SERVER",
+    "urls": [
+      "http://162.12.215.254"
+    ]
+  },
+  {
+    "name": "JMIS INTERNET FTP SERVER",
+    "urls": [
+      "http://www.jannatmirinternetservice.com"
+    ]
+  },
+  {
+    "name": "JONYCABLE NETWORK FTP SERVER",
+    "urls": [
+      "https://jonycable.com"
+    ]
+  },
+  {
+    "name": "JANANI TECHNOLOGY FTP SERVER",
+    "urls": [
+      "https://www.jananibd.com"
+    ]
+  },
+  {
+    "name": "JAKIA NET FTP SERVER",
+    "urls": [
+      "http://jakianetbd.com"
+    ]
+  },
+  {
+    "name": "JHENUK DOT NET FTP SERVER",
+    "urls": [
+      "https://jhenuk.net"
+    ]
+  },
+  {
+    "name": "KHULNA NET 24 FTP SERVER",
+    "urls": [
+      "https://khulnanet24.com"
+    ]
+  },
+  {
+    "name": "KAZI NETWORKS FTP SERVER",
+    "urls": [
+      "http://www.kazinetwork.net"
+    ]
+  },
+  {
+    "name": "KBN ONLINE FTP SERVER",
+    "urls": [
+      "https://kbnonlinebd.net"
+    ]
+  },
+  {
+    "name": "KARSAN NET FTP SERVER",
+    "urls": [
+      "http://103.219.232.190"
+    ]
+  },
+  {
+    "name": "KM NETWORK FTP SERVER",
+    "urls": [
+      "https://kmnbd.net"
+    ]
+  },
+  {
+    "name": "KAWSAR IT FTP SERVER",
+    "urls": [
+      "https://kawsarit.net"
+    ]
+  },
+  {
+    "name": "KLOUD TECHNOLOGIES LIMITED FTP SERVER",
+    "urls": [
+      "http://movies.kloud.com.bd"
+    ]
+  },
+  {
+    "name": "LEADTECHNOLOGY FTP SERVER",
+    "urls": [
+      "http://leadtechnologybd.com"
+    ]
+  },
+  {
+    "name": "LINKIN NET FTP SERVER",
+    "urls": [
+      "http://www.linkinnet.net"
+    ]
+  },
+  {
+    "name": "LIZA ONLINE FTP SERVER",
+    "urls": [
+      "https://www.lizaonlinebd.com"
+    ]
+  },
+  {
+    "name": "LINK3 INTERNET FTP SERVER",
+    "urls": [
+      "http://www.cinehub24.com"
+    ]
+  },
+  {
+    "name": "MASTER NET FTP SERVER",
+    "urls": [
+      "https://masternetbd.net"
+    ]
+  },
+  {
+    "name": "MEDIA ONLINE (MOVIEBAZER) FTP SERVER",
+    "urls": [
+      "http://mymoviebazar.net",
+      "http://mymoviebazar.net/Data"
+    ]
+  },
+  {
+    "name": "MYBDPLEX FTP SERVER",
+    "urls": [
+      "http://mybdplex.com"
+    ]
+  },
+  {
+    "name": "MATHANOSTO FTP SERVER",
+    "urls": [
+      "http://mathanosto.top/Data"
+    ]
+  },
+  {
+    "name": "BD NETWORKS (MOVIEBOXBD) FTP SERVER",
+    "urls": [
+      "http://bd-networks.com"
+    ]
+  },
+  {
+    "name": "MIDIPLEX FTP SERVER",
+    "urls": [
+      "http://cdn.midiplex.net"
+    ]
+  },
+  {
+    "name": "MOVIECOUNTER FTP SERVER",
+    "urls": [
+      "https://moviescounterhd.club"
+    ]
+  },
+  {
+    "name": "MSM ONLINE FTP SERVER",
+    "urls": [
+      "https://msmonlinebd.com"
+    ]
+  },
+  {
+    "name": "GRAMEEN CYBERNET LIMITED (MOVIEHUB) FTP SERVER",
+    "urls": [
+      "http://203.83.177.225"
+    ]
+  },
+  {
+    "name": "MOVIESERVER  FTP SERVER",
+    "urls": [
+      "http://www.movieserver.net"
+    ]
+  },
+  {
+    "name": "MLWBD FTP SERVER",
+    "urls": [
+      "https://mlwbd.mobi"
+    ]
+  },
+  {
+    "name": "MTBSL FTP SERVER",
+    "urls": [
+      "http://bdix.mtbsl.com/server.php"
+    ]
+  },
+  {
+    "name": "MOGHBAZER DOT NET FTP SERVER",
+    "urls": [
+      "https://moghbazar.net"
+    ]
+  },
+  {
+    "name": "MYBDIX FTP SERVER",
+    "urls": [
+      "http://mybdix.com"
+    ]
+  },
+  {
+    "name": "MAHIR NET FTP SERVER",
+    "urls": [
+      "http://45.118.247.178",
+      "http://45.118.247.178:8096"
+    ]
+  },
+  {
+    "name": "MARIUM NETWORK FTP SERVER",
+    "urls": [
+      "http://www.mariumnetwork.com"
+    ]
+  },
+  {
+    "name": "ANIK COMPUTER & NETWORKING (MEDIALINK24.NET) FTP SERVER",
+    "urls": [
+      "http://medialink24.net"
+    ]
+  },
+  {
+    "name": "MOVIEHAAT FTP SERVER",
+    "urls": [
+      "http://59.152.101.198",
+      "http://moviehaat.net"
+    ]
+  },
+  {
+    "name": "MIRPUR NET FTP SERVER",
+    "urls": [
+      "http://mirpurnetbd.com"
+    ]
+  },
+  {
+    "name": "MIXON ONLINE FTP SERVER",
+    "urls": [
+      "http://www.mixonbd.com"
+    ]
+  },
+  {
+    "name": "MEGAPLEX FTP SERVER",
+    "urls": [
+      "http://www.megaplexbd.com"
+    ]
+  },
+  {
+    "name": "MOON CABLE TV FTP SERVER",
+    "urls": [
+      "https://moon2tv.webs.com"
+    ]
+  },
+  {
+    "name": "MICN FTP SERVER",
+    "urls": [
+      "http://micnbd.com"
+    ]
+  },
+  {
+    "name": "MOVIEFREAK FTP SERVER",
+    "urls": [
+      "https://moviefreak.xyz"
+    ]
+  },
+  {
+    "name": "MIRPUR TECH INTERNET FTP SERVER",
+    "urls": [
+      "http://www.mirpurtech.com"
+    ]
+  },
+  {
+    "name": "MANIKDI COMMUNICATION FTP SERVER",
+    "urls": [
+      "https://www.manikdicommunication.com"
+    ]
+  },
+  {
+    "name": "MAYASOFT FTP SERVER",
+    "urls": [
+      "https://www.mayasoftbd.net"
+    ]
+  },
+  {
+    "name": "N-SOLUTION (MOVIE MELA) FTP SERVER",
+    "urls": [
+      "http://103.144.200.9",
+      "http://moviemela.xyz"
+    ]
+  },
+  {
+    "name": "MTN BROADBAND FTP SERVER",
+    "urls": [
+      "https://mtnbdlink.blogspot.com"
+    ]
+  },
+  {
+    "name": "MEGA SPEED NET FTP SERVER",
+    "urls": [
+      "https://megaspeednet.com"
+    ]
+  },
+  {
+    "name": "MICROLINK TECHNOLOGY FTP SERVER",
+    "urls": [
+      "https://microlinkbd.net"
+    ]
+  },
+  {
+    "name": "MA NETWORK FTP SERVER",
+    "urls": [
+      "https://manetbd.com"
+    ]
+  },
+  {
+    "name": "METAPHOR INTERNET FTP SERVER",
+    "urls": [
+      "http://www.metaphornet.net"
+    ]
+  },
+  {
+    "name": "NETATHOMEBD FTP SERVER",
+    "urls": [
+      "https://www.netathomebd.com"
+    ]
+  },
+  {
+    "name": "NETMATRIX FTP SERVER",
+    "urls": [
+      "http://www.netmatrixbd.com"
+    ]
+  },
+  {
+    "name": "NETCOM INTERNET FTP SERVER",
+    "urls": [
+      "https://netcomisp.net"
+    ]
+  },
+  {
+    "name": "NETCODE FTP SERVER",
+    "urls": [
+      "http://netcode.live/netcodemedia"
+    ]
+  },
+  {
+    "name": "NOVUS NETWORK FTP SERVER",
+    "urls": [
+      "http://nbox.live",
+      "http://play.nbox.live",
+      "http://fs.nbox.live"
+    ]
+  },
+  {
+    "name": "NEEF IT FTP SERVER",
+    "urls": [
+      "http://neefit.net"
+    ]
+  },
+  {
+    "name": "NET ONLINE FTP SERVER",
+    "urls": [
+      "http://www.netonlinebd.com"
+    ]
+  },
+  {
+    "name": "NOW HD TIME FTP SERVER",
+    "urls": [
+      "http://nowhdtime.com.bd"
+    ]
+  },
+  {
+    "name": "NET-POINTBD FTP SERVER",
+    "urls": [
+      "https://netpoint.com.bd"
+    ]
+  },
+  {
+    "name": "NET IT SOLUTION FTP SERVER",
+    "urls": [
+      "https://nis.com.bd"
+    ]
+  },
+  {
+    "name": "NEDASA BROADBAND FTP SERVER",
+    "urls": [
+      "http://nedasabd.net"
+    ]
+  },
+  {
+    "name": "NMS TECHNOLOGIES LIMITED (JHAKKAS.LIVE) FTP SERVER",
+    "urls": [
+      "http://fs1.mebd.net",
+      "http://103.56.6.6",
+      "http://103.56.6.6/Data",
+      "http://jhakkas.live",
+      "http://jhakkas.live/Data"
+    ]
+  },
+  {
+    "name": "NETEXPRESS ONLINE FTP SERVER",
+    "urls": [
+      "http://www.neobd.net"
+    ]
+  },
+  {
+    "name": "NET PLUS ONLINE FTP SERVER",
+    "urls": [
+      "http://www.netplusbd.com"
+    ]
+  },
+  {
+    "name": "NET CAFE FTP SERVER",
+    "urls": [
+      "http://100.100.100.100"
+    ]
+  },
+  {
+    "name": "NET CONNECT FTP SERVER",
+    "urls": [
+      "https://www.netconnectbd.com"
+    ]
+  },
+  {
+    "name": "NETTIG INTERNET FTP SERVER",
+    "urls": [
+      "http://nettig.net"
+    ]
+  },
+  {
+    "name": "NTECH COMMUNICATION FTP SERVER",
+    "urls": [
+      "http://www.ntech-bd.com"
+    ]
+  },
+  {
+    "name": "ONNOSOMOY FTP SERVER",
+    "urls": [
+      "http://www.onnosomoy.com:8096"
+    ]
+  },
+  {
+    "name": "ONS FTP SERVER",
+    "urls": [
+      "http://202.94.164.102"
+    ]
+  },
+  {
+    "name": "OSTHIR NET FTP SERVER",
+    "urls": [
+      "http://osthir.net"
+    ]
+  },
+  {
+    "name": "OK NETWORK & COMMUNICATIONS FTP SERVER",
+    "urls": [
+      "https://www.okay.net.bd"
+    ]
+  },
+  {
+    "name": "OCTATECH ONLINE FTP SERVER",
+    "urls": [
+      "http://www.oitbd.net/ftp"
+    ]
+  },
+  {
+    "name": "POWERNET FTP SERVER",
+    "urls": [
+      "https://www.powernetbd.com"
+    ]
+  },
+  {
+    "name": "PLUSNET COMMUNICATION FTP SERVER",
+    "urls": [
+      "http://www.plus.net.bd"
+    ]
+  },
+  {
+    "name": "PLANET3 COMMUNICATION FTP SERVER",
+    "urls": [
+      "http://www.candybd.net"
+    ]
+  },
+  {
+    "name": "PRESS LINK COMMUNICATION FTP SERVER",
+    "urls": [
+      "https://presslinkbd.net"
+    ]
+  },
+  {
+    "name": "POTATO INTERNET FTP SERVER",
+    "urls": [
+      "https://the-potato.net"
+    ]
+  },
+  {
+    "name": "PCV DOT NET FTP SERVER",
+    "urls": [
+      "http://172.16.16.16"
+    ]
+  },
+  {
+    "name": "POSH INTERNET FTP SERVER",
+    "urls": [
+      "http://www.poshbd.net"
+    ]
+  },
+  {
+    "name": "PLUSNETBD FTP SERVER",
+    "urls": [
+      "http://plusnetbd.com"
+    ]
+  },
+  {
+    "name": "PROGOTI IT FTP SERVER",
+    "urls": [
+      "https://progotiit.com"
+    ]
+  },
+  {
+    "name": "QUETELBD INTERNET FTP SERVER",
+    "urls": [
+      "https://quetelbd.net"
+    ]
+  },
+  {
+    "name": "QUICKONLINE FTP SERVER",
+    "urls": [
+      "http://quickonlineftp.com"
+    ]
+  },
+  {
+    "name": "RAINBOW NETWORK FTP SERVER",
+    "urls": [
+      "http://cinemacity.live"
+    ]
+  },
+  {
+    "name": "ROARZONE FTP SERVER",
+    "urls": [
+      "http://www.roarzone.info"
+    ]
+  },
+  {
+    "name": "RIO BROADBAND FTP SERVER",
+    "urls": [
+      "https://rioctg.blogspot.com"
+    ]
+  },
+  {
+    "name": "RADIANT COMMUNICATION & ZERO INTERNET FTP SERVER",
+    "urls": [
+      "http://media.zerointernet.net",
+      "http://media.radiantbd.com",
+      "http://www.radiantbd.net",
+      "http://cdn2.radiantbd.com"
+    ]
+  },
+  {
+    "name": "REALSTATION BROADBAND FTP SERVER",
+    "urls": [
+      "https://realstation.live"
+    ]
+  },
+  {
+    "name": "RL CAFE NET  FTP SERVER",
+    "urls": [
+      "https://rlcafenet.com"
+    ]
+  },
+  {
+    "name": "RS INTERNET FTP SERVER",
+    "urls": [
+      "https://rsnetbd.com"
+    ]
+  },
+  {
+    "name": "RONGDONG FTP SERVER",
+    "urls": [
+      "http://103.251.247.147"
+    ]
+  },
+  {
+    "name": "RDC ONLINE FTP SERVER",
+    "urls": [
+      "http://www.rdconlinebd.net"
+    ]
+  },
+  {
+    "name": "RUNWAY BROADBAND FTP SERVER",
+    "urls": [
+      "https://www.runwaybroadband.com/media-server"
+    ]
+  },
+  {
+    "name": "RED NETWORK FTP SERVER",
+    "urls": [
+      "http://lalbatte.net"
+    ]
+  },
+  {
+    "name": "RAWSHANARA INTERNET FTP SERVER",
+    "urls": [
+      "http://rawshanarainternet.com"
+    ]
+  },
+  {
+    "name": "DAFFODIL INTERNET FTP SERVER",
+    "urls": [
+      "http://ftp.daffodilnet.com"
+    ]
+  },
+  {
+    "name": "RODELA ONLINE FTP SERVER",
+    "urls": [
+      "https://rodelaonlinebd.com"
+    ]
+  },
+  {
+    "name": "RAHUL ENTERPRISE INTERNET FTP SERVER",
+    "urls": [
+      "http://www.rahulenterprise.com.bd"
+    ]
+  },
+  {
+    "name": "RAPIDNET FTP SERVER",
+    "urls": [
+      "https://rapidnetworkbd.wordpress.com"
+    ]
+  },
+  {
+    "name": "ROMS NETWORK FTP SERVER",
+    "urls": [
+      "http://romsnetwork.com"
+    ]
+  },
+  {
+    "name": "RAN ONLINE FTP SERVER",
+    "urls": [
+      "https://ranonline.com.bd"
+    ]
+  },
+  {
+    "name": "RAINBOW D NET FTP SERVER",
+    "urls": [
+      "https://www.rainbowd.net"
+    ]
+  },
+  {
+    "name": "SMALLSCREEN FTP SERVER",
+    "urls": [
+      "http://103.3.226.208"
+    ]
+  },
+  {
+    "name": "SWIFTNET FTP SERVER",
+    "urls": [
+      "http://www.swiftnetbd.com"
+    ]
+  },
+  {
+    "name": "SKNETCITY FTP SERVER",
+    "urls": [
+      "https://www.sknetcity.com"
+    ]
+  },
+  {
+    "name": "SKYLINKNET FTP SERVER",
+    "urls": [
+      "https://slnisp.com.bd"
+    ]
+  },
+  {
+    "name": "SKYNET FTP SERVER",
+    "urls": [
+      "https://www.skynetbd.net"
+    ]
+  },
+  {
+    "name": "SBNETWORK FTP SERVER",
+    "urls": [
+      "http://sbnetworkbd.com"
+    ]
+  },
+  {
+    "name": "SPARKLINK FTP SERVER",
+    "urls": [
+      "https://sparklinkbd.com"
+    ]
+  },
+  {
+    "name": "SPARKNET FTP SERVER",
+    "urls": [
+      "https://sparknetbd.com"
+    ]
+  },
+  {
+    "name": "SS ONLINE FTP SERVER",
+    "urls": [
+      "https://ssonlinebd.com"
+    ]
+  },
+  {
+    "name": "SERVERBD247 FTP SERVER",
+    "urls": [
+      "http://serverbd247.com"
+    ]
+  },
+  {
+    "name": "SKYBIZ FTP SERVER",
+    "urls": [
+      "https://www.skybizbd.net"
+    ]
+  },
+  {
+    "name": "SUPERNET FTP SERVER",
+    "urls": [
+      "http://supernetsenbag.com"
+    ]
+  },
+  {
+    "name": "SKYNET ONLINE FTP SERVER",
+    "urls": [
+      "https://skynetonlinebd.net"
+    ]
+  },
+  {
+    "name": "STARGATE COMMUNICATIONS LIMITED (STARPLEXBD) FTP SERVER",
+    "urls": [
+      "http://172.27.27.1",
+      "http://172.27.27.1/data",
+      "http://starplexbd.com",
+      "http://starplexbd.com/data"
+    ]
+  },
+  {
+    "name": "SR NETWORKS FTP SERVER",
+    "urls": [
+      "https://srnetworks.webs.com/ftp-live-tv"
+    ]
+  },
+  {
+    "name": "SPEEDNET KHULNA FTP SERVER",
+    "urls": [
+      "http://speed4you.net"
+    ]
+  },
+  {
+    "name": "SMARTNET FTP SERVER",
+    "urls": [
+      "http://movie.smartnetltd.com"
+    ]
+  },
+  {
+    "name": "STAR INTERNET FTP SERVER",
+    "urls": [
+      "http://103.115.253.254",
+      "http://103.115.253.254/Data"
+    ]
+  },
+  {
+    "name": "SYLNET FTP SERVER",
+    "urls": [
+      "http://172.102.0.3"
+    ]
+  },
+  {
+    "name": "SPEEDO NET FTP SERVER",
+    "urls": [
+      "https://speedo.net.bd"
+    ]
+  },
+  {
+    "name": "SNS BROADBAND NETWORK FTP SERVER",
+    "urls": [
+      "https://snsbd.net"
+    ]
+  },
+  {
+    "name": "SMIRITY CABLE FTP SERVER",
+    "urls": [
+      "https://www.smiritycable.com"
+    ]
+  },
+  {
+    "name": "SARDER COMMUNICATIONS FTP SERVER",
+    "urls": [
+      "https://sardernet.com"
+    ]
+  },
+  {
+    "name": "SMARTONLINE FTP SERVER",
+    "urls": [
+      "https://ctgoz.com"
+    ]
+  },
+  {
+    "name": "SUNLIT NETWORK FTP SERVER",
+    "urls": [
+      "http://sunlit.tv"
+    ]
+  },
+  {
+    "name": "SWAPNO NETWORK FTP SERVER",
+    "urls": [
+      "http://swapnonetwork.net"
+    ]
+  },
+  {
+    "name": "SALTSYNC LIMITED FTP SERVER",
+    "urls": [
+      "http://103.107.160.36",
+      "http://103.107.160.37/FTP/Movies",
+      "http://103.107.160.37/FTP/TVSeries",
+      "http://kaat.pw"
+    ]
+  },
+  {
+    "name": "SALAM ONLINE FTP SERVER",
+    "urls": [
+      "https://salamonline.com.bd"
+    ]
+  },
+  {
+    "name": "SHERPUR NETWORK FTP SERVER",
+    "urls": [
+      "http://43.246.200.82:8082"
+    ]
+  },
+  {
+    "name": "SPEED NET COMMUNICATION FTP SERVER",
+    "urls": [
+      "http://speed2000bd.com"
+    ]
+  },
+  {
+    "name": "SKYLINE BROADBAND FTP SERVER",
+    "urls": [
+      "https://www.skylinectg.com"
+    ]
+  },
+  {
+    "name": "SATRONG FTP SERVER",
+    "urls": [
+      "http://fs.satrong.live"
+    ]
+  },
+  {
+    "name": "SATURN INTERNET FTP SERVER",
+    "urls": [
+      "http://www.saturninternetbd.com"
+    ]
+  },
+  {
+    "name": "SAVAR NETCITY INTERNET FTP SERVER",
+    "urls": [
+      "http://www.netcitybd.com"
+    ]
+  },
+  {
+    "name": "S-NET FTP SERVER",
+    "urls": [
+      "https://s-netisp.com"
+    ]
+  },
+  {
+    "name": "SMILE IT & BROADBAND SERVICE FTP SERVER",
+    "urls": [
+      "http://smileit.xyz"
+    ]
+  },
+  {
+    "name": "SARKER CABLE NETWORK FTP SERVER",
+    "urls": [
+      "https://scubenetworkbd.com"
+    ]
+  },
+  {
+    "name": "SUPERLINK IT SOLUTION FTP SERVER",
+    "urls": [
+      "https://superlinkbd.xyz"
+    ]
+  },
+  {
+    "name": "SPEED PLUS INTERNET FTP SERVER",
+    "urls": [
+      "https://www.speedplusisp.net/mainweb/index.html"
+    ]
+  },
+  {
+    "name": "SPEEDO COMMUNICATION FTP SERVER",
+    "urls": [
+      "https://speedo.net.bd"
+    ]
+  },
+  {
+    "name": "S.S ALI & CO. ISP FTP SERVER",
+    "urls": [
+      "http://103.80.70.60",
+      "http://digbazi.net",
+      "http://103.80.70.60/drive",
+      "http://digbazi.net/drive"
+    ]
+  },
+  {
+    "name": "SKYNET CHOWMUHANI FTP SERVER",
+    "urls": [
+      "http://103.109.56.114",
+      "http://103.109.56.115",
+      "http://funtime.com.bd"
+    ]
+  },
+  {
+    "name": "STAR NETWORK FTP SERVER",
+    "urls": [
+      "http://www.starnetworkbd.com"
+    ]
+  },
+  {
+    "name": "SKYNET BROADBAND SERVICE FTP SERVER",
+    "urls": [
+      "https://www.skynet.com.bd"
+    ]
+  },
+  {
+    "name": "STARONLINE FTP SERVER",
+    "urls": [
+      "https://staronline.com.bd"
+    ]
+  },
+  {
+    "name": "SPEED TECH ONLINE  FTP SERVER",
+    "urls": [
+      "http://www.come2speed.com"
+    ]
+  },
+  {
+    "name": "SPEED LINK BROADBAND INTERNET FTP SERVER",
+    "urls": [
+      "https://speedlinkbd.com"
+    ]
+  },
+  {
+    "name": "TETRASOFT FTP SERVER",
+    "urls": [
+      "http://tetraplex.net.bd"
+    ]
+  },
+  {
+    "name": "TNET FTP SERVER",
+    "urls": [
+      "http://www.tnetftp.com"
+    ]
+  },
+  {
+    "name": "TLINK COMMUNICATION FTP SERVER",
+    "urls": [
+      "https://mytlinkbd.net"
+    ]
+  },
+  {
+    "name": "TALTOLA NET FTP SERVER",
+    "urls": [
+      "http://146.196.48.9",
+      "http://146.196.48.10"
+    ]
+  },
+  {
+    "name": "TODAY VISION FTP SERVER",
+    "urls": [
+      "http://todayvisionbd.com"
+    ]
+  },
+  {
+    "name": "TOUCH ONLINE FTP SERVER",
+    "urls": [
+      "https://touchonline.net.bd"
+    ]
+  },
+  {
+    "name": "TALUKDER NET FTP SERVER",
+    "urls": [
+      "https://talukdernet.com"
+    ]
+  },
+  {
+    "name": "T-NETWORK FTP SERVER",
+    "urls": [
+      "https://tnetwork.com.bd"
+    ]
+  },
+  {
+    "name": "TUHIN ENTERPRISE FTP SERVER",
+    "urls": [
+      "http://www.tufan.live"
+    ]
+  },
+  {
+    "name": "THE NET HEADS FTP SERVER",
+    "urls": [
+      "https://www.thenetheads.com"
+    ]
+  },
+  {
+    "name": "TAKERHAT WIFI FTP SERVER",
+    "urls": [
+      "http://www.takerhatwifi.com"
+    ]
+  },
+  {
+    "name": "U-TURN BROADBAND FTP SERVER",
+    "urls": [
+      "http://172.16.16.3",
+      "http://172.16.16.5",
+      "http://172.16.16.6"
+    ]
+  },
+  {
+    "name": "UNIQUE24 DOT NET FTP SERVER",
+    "urls": [
+      "http://media.unique24.net"
+    ]
+  },
+  {
+    "name": "UNIQUEONLINE FTP SERVER",
+    "urls": [
+      "http://www.uniqueonlinebd.com"
+    ]
+  },
+  {
+    "name": "UNIFIED CORE INTERNET FTP SERVER",
+    "urls": [
+      "http://www.chillbd.net"
+    ]
+  },
+  {
+    "name": "UPDATE NETWORK FTP SERVER",
+    "urls": [
+      "http://www.updatenetworkbd.com"
+    ]
+  },
+  {
+    "name": "U-TURN INTERNET COMMUNICATION FTP SERVER",
+    "urls": [
+      "http://uturninternet.com"
+    ]
+  },
+  {
+    "name": "VDOMELA FTP SERVER",
+    "urls": [
+      "http://vdomela.com"
+    ]
+  },
+  {
+    "name": "VELOCITY INTERNET FTP SERVER",
+    "urls": [
+      "https://www.ctghub.com"
+    ]
+  },
+  {
+    "name": "VE BROADBAND NETWORK FTP SERVER",
+    "urls": [
+      "http://172.17.17.19",
+      "http://172.17.17.14:82"
+    ]
+  },
+  {
+    "name": "VIBE INTERNET FTP SERVER",
+    "urls": [
+      "https://www.vibebd.com"
+    ]
+  },
+  {
+    "name": "VIRTUAL COMMUNICATION FTP SERVER",
+    "urls": [
+      "https://www.vcbd.net"
+    ]
+  },
+  {
+    "name": "WINNERIT FTP SERVER",
+    "urls": [
+      "http://103.92.213.55",
+      "http://103.92.213.55/Data"
+    ]
+  },
+  {
+    "name": "WORLD COMMUNICATION INTERNET FTP SERVER",
+    "urls": [
+      "https://www.worldbd.net"
+    ]
+  },
+  {
+    "name": "WEBRANGERS NET FTP SERVER",
+    "urls": [
+      "https://webrangers.net"
+    ]
+  },
+  {
+    "name": "WETUBE NETWORK FTP SERVER",
+    "urls": [
+      "http://45.45.45.45"
+    ]
+  },
+  {
+    "name": "XPLORE NET FTP SERVER",
+    "urls": [
+      "https://maxnetbd.com"
+    ]
+  },
+  {
+    "name": "XENIAL BROADBAND FTP SERVER",
+    "urls": [
+      "http://xenialbb.net"
+    ]
+  },
+  {
+    "name": "YELLOW NET FTP SERVER",
+    "urls": [
+      "https://www.yellownetbd.com/ftp"
+    ]
+  },
+  {
+    "name": "YESNET COMMUNICATION FTP SERVER",
+    "urls": [
+      "https://yesnetcommunication.com"
+    ]
+  },
+  {
+    "name": "YOURNET COMMUNICATION FTP SERVER",
+    "urls": [
+      "http://www.yournetcommunications.net"
+    ]
+  },
+  {
+    "name": "ZX ONLINE FTP SERVER",
+    "urls": [
+      "http://www.zxonlinebd.com"
+    ]
+  },
+  {
+    "name": "ZERO 4 COMMUNICATION FTP SERVER",
+    "urls": [
+      "http://103.96.36.115"
+    ]
+  },
+  {
+    "name": "ZOOM ONLINE NET FTP SERVER",
+    "urls": [
+      "https://zoomonlinebd.net"
+    ]
+  },
+  {
+    "name": "ZIP NET FTP SERVER",
+    "urls": [
+      "http://www.zipnetbd.com"
+    ]
+  },
+  {
+    "name": "ZIP CYBER FTP SERVER",
+    "urls": [
+      "http://www.zipcyber.com"
+    ]
+  },
+  {
+    "name": "ZOOM ONLINE FTP SERVER",
+    "urls": [
+      "http://zoomonline.com.bd"
+    ]
+  },
+  {
+    "name": "3NET FTP SERVER",
+    "urls": [
+      "http://3netbd.com"
+    ]
+  },
+  {
+    "name": "3RCOMMUNICATION FTP SERVER",
+    "urls": [
+      "https://3rcommunications.com"
+    ]
+  },
+  {
+    "name": "4G NETWORK FTP SERVER",
+    "urls": [
+      "https://www.4gnetworkbd.com"
+    ]
+  },
+  {
+    "name": "29COMMUNICATION FTP SERVER",
+    "urls": [
+      "http://www.29com.net"
+    ]
+  },
+  {
+    "name": "ELITE COMMUNICATION (JUSTMOVIE) FTP SERVER",
+    "urls": [
+      "http://15.20.20.20",
+      "https://genvideos.org"
+    ]
+  }
+]

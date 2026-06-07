@@ -200,55 +200,88 @@ fun BrowseListRow(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun BrowseGridCard(
     entry: Entry,
     posterSeed: String,
-    icon: ImageVector,
     label: String,
-    sub: String,
+    chips: List<String>,
     watched: Boolean,
     pct: Float,
-    res: String?,
     imageUrl: String?,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
     onMenu: (() -> Unit)? = null,
     pinned: Boolean = false,
 ) {
-    // No clip on the Column — it would crop the descenders of the caption below.
-    Column(Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = onLongClick)) {
-        Box {
-            Poster(
-                seed = posterSeed,
-                icon = icon,
-                label = label,
-                watched = watched,
-                progress = if (pct > 1f && pct < 96f) pct.toInt() else null,
-                badge = res,
-                imageUrl = imageUrl,
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .aspectRatio(2f / 3f)
+            .clip(RoundedCornerShape(14.dp))
+            .background(coverBrush(posterSeed))
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+    ) {
+        if (imageUrl != null) {
+            coil3.compose.AsyncImage(
+                model = imageUrl,
+                contentDescription = null,
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
             )
-            if (pinned) {
-                Box(Modifier.align(Alignment.TopStart).padding(8.dp).size(22.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.5f)), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Filled.PushPin, "Pinned", tint = Color.White, modifier = Modifier.size(13.dp))
-                }
+        }
+        // Bottom-darkening scrim so title + chips stay legible.
+        Box(
+            Modifier.fillMaxSize().background(
+                androidx.compose.ui.graphics.Brush.verticalGradient(
+                    0f to Color.Transparent, 0.42f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.9f),
+                ),
+            ),
+        )
+
+        if (pinned) {
+            Box(Modifier.align(Alignment.TopStart).padding(8.dp).size(22.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.5f)), contentAlignment = Alignment.Center) {
+                Icon(Icons.Filled.PushPin, "Pinned", tint = Color.White, modifier = Modifier.size(13.dp))
             }
-            if (onMenu != null && !entry.isDir) {
-                Box(
-                    Modifier.align(Alignment.TopEnd).padding(6.dp).size(28.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.5f)).clickable(onClick = onMenu),
-                    contentAlignment = Alignment.Center,
+        } else if (watched) {
+            Box(Modifier.align(Alignment.TopStart).padding(8.dp).size(22.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {
+                Icon(Icons.Filled.Check, "Watched", tint = Color.White, modifier = Modifier.size(13.dp))
+            }
+        }
+        if (onMenu != null && !entry.isDir) {
+            Box(
+                Modifier.align(Alignment.TopEnd).padding(6.dp).size(30.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.5f)).clickable(onClick = onMenu),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Outlined.MoreVert, "More", tint = Color.White, modifier = Modifier.size(18.dp))
+            }
+        }
+
+        Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = 10.dp, end = 10.dp, bottom = 10.dp, top = 28.dp)) {
+            Text(label, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.W700), color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            if (chips.isNotEmpty()) {
+                androidx.compose.foundation.layout.FlowRow(
+                    Modifier.padding(top = 6.dp),
+                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(5.dp),
+                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(5.dp),
                 ) {
-                    Icon(Icons.Outlined.MoreVert, "More", tint = Color.White, modifier = Modifier.size(18.dp))
+                    chips.forEach { GridChip(it) }
                 }
             }
         }
-        Text(
-            sub,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1, overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 8.dp, start = 2.dp, end = 2.dp, bottom = 2.dp),
-        )
+
+        if (pct > 1f && pct < 96f) {
+            Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(3.dp).background(Color.White.copy(alpha = 0.25f))) {
+                Box(Modifier.fillMaxHeight().fillMaxWidth(pct / 100f).background(MaterialTheme.colorScheme.primary))
+            }
+        }
+    }
+}
+
+@Composable
+private fun GridChip(text: String) {
+    Box(Modifier.clip(RoundedCornerShape(4.dp)).background(Color.White.copy(alpha = 0.20f)).padding(horizontal = 6.dp, vertical = 2.dp)) {
+        Text(text, style = MaterialTheme.typography.labelSmall, color = Color.White, maxLines = 1)
     }
 }

@@ -318,10 +318,10 @@ fun BrowserScreen(
                         val pct = if (isVid && e.durSec != null) getProgress(key).toFloat() / e.durSec * 100 else 0f
                         val np = if (isVid) prettyName(e.name) else null
                         val label = if (e.isDir) cleanTitle(e.name) else (np?.primary ?: e.name)
-                        val sub = if (e.isDir) {
-                            fileMeta(e)
+                        val chips = if (e.isDir) {
+                            listOfNotNull(e.mtime?.let { fmtDate(it) })
                         } else {
-                            listOfNotNull(e.size?.let { fmtSize(it) }, encodingOf(e.name), e.mtime?.let { fmtDate(it) }).joinToString("  ·  ")
+                            listOfNotNull(if (isVid) resFor(e.name) else null, e.size?.let { fmtSize(it) }, if (isVid) encodingOf(e.name) else null)
                         }
                         val thumb = when {
                             e.isDir -> rememberFolderThumb(serverId, path + e.name)
@@ -331,12 +331,10 @@ fun BrowserScreen(
                         BrowseGridCard(
                             entry = e,
                             posterSeed = e.name,
-                            icon = if (e.isDir) Icons.Outlined.FolderOpen else Icons.Filled.PlayCircle,
                             label = label,
-                            sub = sub,
+                            chips = chips,
                             watched = isVid && isWatched(key, e.durSec),
                             pct = pct,
-                            res = if (isVid) resFor(e.name) else null,
                             imageUrl = thumb,
                             onClick = { open(e) },
                             onLongClick = if (e.isDir) ({ pinFolder(e) }) else null,

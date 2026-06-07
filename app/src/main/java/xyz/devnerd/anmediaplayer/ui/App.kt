@@ -37,10 +37,12 @@ import xyz.devnerd.anmediaplayer.ui.screens.downloads.DownloadsScreen
 import xyz.devnerd.anmediaplayer.ui.screens.home.HomeScreen
 import xyz.devnerd.anmediaplayer.ui.screens.servers.ConnectScreen
 import xyz.devnerd.anmediaplayer.ui.screens.servers.ServersScreen
+import xyz.devnerd.anmediaplayer.ui.screens.servers.SuggestedServersScreen
 import xyz.devnerd.anmediaplayer.ui.screens.settings.SettingsActions
 import xyz.devnerd.anmediaplayer.ui.screens.settings.SettingsScreen
 
 private const val ROUTE_CONNECT = "connect"
+private const val ROUTE_SUGGESTED = "suggested"
 
 private fun browseRoute(server: String, path: List<String>): String {
     val p = if (path.isEmpty()) "_" else Uri.encode(path.joinToString("/"))
@@ -120,6 +122,7 @@ fun App(
                 ServersScreen(
                     modifier = Modifier.fillMaxSize(),
                     onAddServer = { navController.navigate(ROUTE_CONNECT) },
+                    onFindServers = { navController.navigate(ROUTE_SUGGESTED) },
                     onOpenServer = { navController.navigate(browseRoute(it, emptyList())) },
                 )
             }
@@ -136,6 +139,16 @@ fun App(
             }
             composable(TopDest.SETTINGS.route) {
                 SettingsScreen(settings = settings, actions = settingsActions, modifier = Modifier.fillMaxSize())
+            }
+            composable(ROUTE_SUGGESTED) {
+                SuggestedServersScreen(
+                    onClose = { navController.popBackStack() },
+                    onSaved = { server ->
+                        navController.navigate(browseRoute(server, emptyList())) {
+                            popUpTo(ROUTE_SUGGESTED) { inclusive = true }
+                        }
+                    },
+                )
             }
             composable(ROUTE_CONNECT) {
                 ConnectScreen(
@@ -187,9 +200,10 @@ fun App(
 }
 
 private fun NavController.switchTab(route: String) {
+    // Always land on the tab root, popping any open browse stack (no saveState/
+    // restoreState — that re-restored the browse and made Home appear "stuck").
     navigate(route) {
-        popUpTo(graph.startDestinationId) { saveState = true }
+        popUpTo(graph.startDestinationId) { inclusive = false }
         launchSingleTop = true
-        restoreState = true
     }
 }

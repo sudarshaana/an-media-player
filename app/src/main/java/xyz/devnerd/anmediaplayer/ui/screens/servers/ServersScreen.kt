@@ -31,6 +31,7 @@ import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.StarOutline
+import androidx.compose.material.icons.outlined.TravelExplore
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
@@ -64,6 +65,7 @@ fun ServersScreen(
     modifier: Modifier = Modifier,
     onOpenServer: (String) -> Unit = {},
     onAddServer: () -> Unit = {},
+    onFindServers: () -> Unit = {},
 ) {
     val servers = AppRepo.servers
     var menuFor by remember { mutableStateOf<Server?>(null) }
@@ -76,6 +78,7 @@ fun ServersScreen(
                 title = { Text("Servers") },
                 windowInsets = androidx.compose.foundation.layout.WindowInsets(0),
                 actions = {
+                    IconButton(onClick = onFindServers) { Icon(Icons.Outlined.TravelExplore, "Find servers for my ISP") }
                     IconButton(onClick = {}) { Icon(Icons.Outlined.History, "History") }
                 },
             )
