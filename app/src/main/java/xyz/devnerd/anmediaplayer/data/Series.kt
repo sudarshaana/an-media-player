@@ -14,7 +14,12 @@ fun seasonNumber(name: String): Int {
 }
 
 data class SeasonRef(val number: Int, val rawName: String, val path: List<String>) {
-    val label: String get() = if (number > 0) "Season $number" else cleanTitle(rawName)
+    /** Tag in parens distinguishes variants, e.g. "Season 1 (Korean Language)" → "Korean Language". */
+    val tag: String? get() = Regex("\\(([^)]*)\\)").find(rawName)?.groupValues?.get(1)?.trim()?.takeIf { it.isNotBlank() }
+    val label: String get() {
+        val base = if (number > 0) "Season $number" else cleanTitle(rawName)
+        return tag?.let { "$base · $it" } ?: base
+    }
 }
 
 /** A flat playback entry across seasons. */

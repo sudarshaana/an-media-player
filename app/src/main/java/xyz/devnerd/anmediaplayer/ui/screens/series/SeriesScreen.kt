@@ -74,9 +74,16 @@ fun SeriesView(
     LaunchedEffect(season.path) { episodes = loadEpisodes(serverId, season.path) }
     val scope = rememberCoroutineScope()
 
+    // Same season number appearing twice = language/dub variants → don't chain across them.
+    val hasVariants = seasons.groupingBy { it.number }.eachCount().any { it.value > 1 }
+
     fun play(ep: Entry) {
         scope.launch {
-            val pl = buildSeriesPlaylist(serverId, seasons)
+            val pl = if (hasVariants) {
+                loadEpisodes(serverId, season.path).map { EpisodeRef(season.path, it.name, it.durSec ?: 0) }
+            } else {
+                buildSeriesPlaylist(serverId, seasons)
+            }
             val start = pl.firstOrNull { it.path == season.path && it.file == ep.name }
                 ?: EpisodeRef(season.path, ep.name, ep.durSec ?: 0)
             onPlayEpisode(pl, start)

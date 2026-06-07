@@ -86,6 +86,24 @@ private enum class PlayerSheet { SUBTITLE, AUDIO, SPEED, RESIZE }
 private data class Gesture(val left: Boolean, val value: Float)
 private data class SeekFx(val forward: Boolean, val token: Long)
 
+@OptIn(UnstableApi::class)
+private data class AudioOpt(val group: androidx.media3.common.Tracks.Group, val trackIndex: Int, val label: String, val selected: Boolean)
+
+@OptIn(UnstableApi::class)
+private fun audioOptions(tracks: androidx.media3.common.Tracks): List<AudioOpt> = buildList {
+    var n = 1
+    tracks.groups.filter { it.type == C.TRACK_TYPE_AUDIO }.forEach { g ->
+        for (i in 0 until g.length) {
+            if (!g.isTrackSupported(i)) continue
+            val f = g.getTrackFormat(i)
+            val lang = f.language?.let { java.util.Locale(it).displayLanguage.ifBlank { it } }
+            val parts = listOfNotNull(f.label, lang, f.codecs?.substringBefore('.')?.uppercase(), if (f.channelCount > 0) "${f.channelCount}ch" else null)
+            add(AudioOpt(g, i, parts.joinToString(" · ").ifBlank { "Audio $n" }, g.isTrackSelected(i)))
+            n++
+        }
+    }
+}
+
 private fun subtitleMime(url: String): String = when (url.substringAfterLast('.').lowercase()) {
     "vtt" -> MimeTypes.TEXT_VTT
     "ssa", "ass" -> MimeTypes.TEXT_SSA
@@ -116,6 +134,17 @@ fun PlayerScreen(
     saveProgress: (Int, Int) -> Unit,
 ) {
     val context = LocalContext.current
+    val activity = context as? android.app.Activity
+    val audio = remember { context.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager }
+    val maxVol = remember { audio.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC).coerceAtLeast(1) }
+    fun applyBrightness(v: Float) {
+        activity?.window?.let { w -> w.attributes = w.attributes.apply { screenBrightness = v.coerceIn(0.02f, 1f) } }
+    }
+    fun applyVolume(v: Float) {
+        audio.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, (v * maxVol).roundToInt().coerceIn(0, maxVol), 0)
+    }
+    fun currentBrightness(): Float = activity?.window?.attributes?.screenBrightness?.takeIf { it in 0f..1f } ?: 0.5f
+    fun currentVolume(): Float = audio.getStreamVolume(android.media.AudioManager.STREAM_MUSIC).toFloat() / maxVol
 
     val exo = remember(streamUrl) {
         ExoPlayer.Builder(context).build().apply {
@@ -146,14 +175,24 @@ fun PlayerScreen(
     var locked by remember { mutableStateOf(false) }
     var speed by remember { mutableFloatStateOf(1f) }
     var subIndex by remember { mutableIntStateOf(if (subtitlesDefault) 1 else 0) }
-    var audioIndex by remember { mutableIntStateOf(0) }
+    var audioOpts by remember { mutableStateOf<List<AudioOpt>>(emptyList()) }
     var resize by remember { mutableStateOf("fit") }
     var sheet by remember { mutableStateOf<PlayerSheet?>(null) }
     var showPlaylist by remember { mutableStateOf(false) }
     var scrubbing by remember { mutableStateOf(false) }
     var seekFx by remember { mutableStateOf<SeekFx?>(null) }
     var gesture by remember { mutableStateOf<Gesture?>(null) }
+    var ffActive by remember { mutableStateOf(false) }
     var uiPoke by remember { mutableIntStateOf(0) }
+
+    androidx.activity.compose.BackHandler {
+        when {
+            sheet != null -> sheet = null
+            showPlaylist -> showPlaylist = false
+            locked -> locked = false
+            else -> onClose()
+        }
+    }
 
     DisposableEffect(exo) {
         val listener = object : Player.Listener {
@@ -162,9 +201,13 @@ fun PlayerScreen(
                 buffering = state == Player.STATE_BUFFERING
                 if (state == Player.STATE_ENDED) onEnded()
             }
+            override fun onTracksChanged(tracks: androidx.media3.common.Tracks) { audioOpts = audioOptions(tracks) }
         }
         exo.addListener(listener)
-        onDispose { exo.removeListener(listener); exo.release() }
+        onDispose {
+            exo.removeListener(listener); exo.release()
+            activity?.window?.let { w -> w.attributes = w.attributes.apply { screenBrightness = -1f } }
+        }
     }
 
     // poll position/duration/buffer
@@ -185,6 +228,14 @@ fun PlayerScreen(
         if (showUI && playing && sheet == null && !locked) { delay(3400); showUI = false }
     }
 
+    fun enterPip() {
+        if (android.os.Build.VERSION.SDK_INT >= 26 && activity != null) {
+            showUI = false
+            val params = android.app.PictureInPictureParams.Builder().setAspectRatio(android.util.Rational(16, 9)).build()
+            runCatching { activity.enterPictureInPictureMode(params) }
+        }
+    }
+
     fun poke() { showUI = true; uiPoke++ }
     fun seekBy(d: Int) { exo.seekTo((exo.currentPosition + d * 1000L).coerceAtLeast(0)) }
     fun togglePlay() { if (exo.isPlaying) exo.pause() else exo.play(); poke() }
@@ -198,11 +249,15 @@ fun PlayerScreen(
             .build()
     }
     fun applySpeed(s: Float) { speed = s; exo.setPlaybackSpeed(s) }
+    fun applyAudio(i: Int) {
+        val o = audioOpts.getOrNull(i) ?: return
+        exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()
+            .setOverrideForType(androidx.media3.common.TrackSelectionOverride(o.group.mediaTrackGroup, o.trackIndex)).build()
+    }
 
     LaunchedEffect(exo) { if (subtitlesDefault) applySub(1) }
 
     val subTracks = listOf("Off", if (subtitleUrl != null) "English  ·  ${subtitleUrl.substringAfterLast('/')}" else "English (auto)", "English (SDH)", "Español")
-    val audioTracks = listOf("English  ·  5.1 EAC3", "Japanese  ·  2.0 AAC", "Director commentary")
     val speeds = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f)
     val resizes = listOf("fit" to "Fit", "fill" to "Fill", "zoom" to "Zoom")
 
@@ -223,8 +278,34 @@ fun PlayerScreen(
         Box(
             Modifier
                 .fillMaxSize()
+                .then(if (cinema) Modifier.fillMaxHeight(0.46f).align(Alignment.TopCenter) else Modifier),
+            contentAlignment = Alignment.Center,
+        ) {
+            AndroidView(
+                factory = {
+                    PlayerView(it).apply {
+                        player = exo
+                        useController = false
+                        isClickable = false
+                        isFocusable = false
+                        setKeepScreenOn(keepScreenOn)
+                        setShutterBackgroundColor(android.graphics.Color.BLACK)
+                    }
+                },
+                update = { it.resizeMode = resizeMode },
+                modifier = Modifier.fillMaxSize(),
+            )
+            if (buffering) CircularProgressIndicator(color = Color.White)
+        }
+
+        // Single gesture overlay ABOVE the PlayerView (PlayerView consumes touch).
+        // Two pointerInput on the SAME node: tap/double-tap/long-press + vertical drag
+        // (left half = brightness, right half = volume). Standard, reliable pattern.
+        Box(
+            Modifier
+                .fillMaxSize()
                 .then(if (cinema) Modifier.fillMaxHeight(0.46f).align(Alignment.TopCenter) else Modifier)
-                .pointerInput(locked) {
+                .pointerInput(locked, speed) {
                     detectTapGestures(
                         onTap = { showUI = !showUI; if (showUI) uiPoke++ },
                         onDoubleTap = { off ->
@@ -236,42 +317,28 @@ fun PlayerScreen(
                                 seekFx = SeekFx(fwd, off.x.toLong() + time.toLong())
                             }
                         },
+                        onLongPress = { if (!locked) { ffActive = true; exo.setPlaybackSpeed(2f) } },
+                        onPress = {
+                            tryAwaitRelease()
+                            if (ffActive) { ffActive = false; exo.setPlaybackSpeed(speed) }
+                        },
                     )
-                },
-            contentAlignment = Alignment.Center,
-        ) {
-            AndroidView(
-                factory = {
-                    PlayerView(it).apply {
-                        player = exo
-                        useController = false
-                        setKeepScreenOn(keepScreenOn)
-                        setShutterBackgroundColor(android.graphics.Color.BLACK)
+                }
+                .pointerInput(locked, cinema) {
+                    if (locked || cinema) return@pointerInput
+                    var left = true
+                    var v = 0.5f
+                    detectVerticalDragGestures(
+                        onDragStart = { off -> left = off.x < size.width / 2f; v = if (left) currentBrightness() else currentVolume(); gesture = Gesture(left, v) },
+                        onDragEnd = { gesture = null },
+                        onDragCancel = { gesture = null },
+                    ) { _, dy ->
+                        v = (v - dy / 600f).coerceIn(0f, 1f)
+                        if (left) applyBrightness(v) else applyVolume(v)
+                        gesture = Gesture(left, v)
                     }
                 },
-                update = { it.resizeMode = resizeMode },
-                modifier = Modifier.fillMaxSize(),
-            )
-            if (buffering) CircularProgressIndicator(color = Color.White)
-        }
-
-        // gesture zones (brightness left, volume right)
-        if (!locked && !cinema) {
-            Box(
-                Modifier.align(Alignment.CenterStart).fillMaxHeight().fillMaxWidth(0.34f)
-                    .pointerInput(Unit) {
-                        var v = 0.7f
-                        detectVerticalDragGestures(onDragStart = { v = 0.7f; gesture = Gesture(true, v) }, onDragEnd = { gesture = null }) { _, dy -> v = (v - dy / 600f).coerceIn(0f, 1f); gesture = Gesture(true, v) }
-                    },
-            )
-            Box(
-                Modifier.align(Alignment.CenterEnd).fillMaxHeight().fillMaxWidth(0.34f)
-                    .pointerInput(Unit) {
-                        var v = 0.6f
-                        detectVerticalDragGestures(onDragStart = { v = 0.6f; gesture = Gesture(false, v) }, onDragEnd = { gesture = null }) { _, dy -> v = (v - dy / 600f).coerceIn(0f, 1f); gesture = Gesture(false, v) }
-                    },
-            )
-        }
+        )
 
         seekFx?.let { fx ->
             LaunchedEffect(fx.token) { delay(500); if (seekFx?.token == fx.token) seekFx = null }
@@ -298,6 +365,18 @@ fun PlayerScreen(
             }
         }
 
+        if (ffActive) {
+            Box(Modifier.fillMaxSize().padding(top = 56.dp), contentAlignment = Alignment.TopCenter) {
+                Row(
+                    Modifier.clip(RoundedCornerShape(20.dp)).background(Color.Black.copy(alpha = 0.55f)).padding(horizontal = 14.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Icon(Icons.Filled.SkipNext, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                    Text("2× speed", style = MaterialTheme.typography.labelMedium, color = Color.White)
+                }
+            }
+        }
+
         // ── locked overlay ──
         if (locked) {
             Box(Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures { showUI = !showUI } }, contentAlignment = Alignment.Center) {
@@ -314,7 +393,7 @@ fun PlayerScreen(
         }
 
         AnimatedVisibility(showUI, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.TopCenter)) {
-            TopChrome(np.primary, subtitleLabel, cinema, onClose, onPlaylist = if (playlist.size > 1) ({ showPlaylist = true }) else null)
+            TopChrome(np.primary, subtitleLabel, cinema, onClose, onPlaylist = if (playlist.size > 1) ({ showPlaylist = true }) else null, onPiP = { enterPip() })
         }
         if (!minimal) {
             AnimatedVisibility(showUI, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.Center)) {
@@ -345,7 +424,13 @@ fun PlayerScreen(
 
     when (sheet) {
         PlayerSheet.SUBTITLE -> TrackSheet("Subtitles", subTracks, subIndex, onPick = { applySub(it); sheet = null }, onDismiss = { sheet = null }, footer = "Load subtitle file…")
-        PlayerSheet.AUDIO -> TrackSheet("Audio track", audioTracks, audioIndex, onPick = { audioIndex = it; sheet = null }, onDismiss = { sheet = null })
+        PlayerSheet.AUDIO -> TrackSheet(
+            "Audio track",
+            audioOpts.map { it.label }.ifEmpty { listOf("Default") },
+            audioOpts.indexOfFirst { it.selected }.coerceAtLeast(0),
+            onPick = { applyAudio(it); sheet = null },
+            onDismiss = { sheet = null },
+        )
         PlayerSheet.SPEED -> SpeedSheet(speeds, speed, onPick = { applySpeed(it); sheet = null }, onDismiss = { sheet = null })
         PlayerSheet.RESIZE -> ResizeSheet(resizes, resize, onPick = { resize = it; sheet = null }, onDismiss = { sheet = null })
         null -> Unit
@@ -355,7 +440,7 @@ fun PlayerScreen(
 }
 
 @Composable
-private fun TopChrome(title: String, subtitle: String, cinema: Boolean, onClose: () -> Unit, onPlaylist: (() -> Unit)? = null) {
+private fun TopChrome(title: String, subtitle: String, cinema: Boolean, onClose: () -> Unit, onPlaylist: (() -> Unit)? = null, onPiP: (() -> Unit)? = null) {
     Row(
         Modifier.fillMaxWidth()
             .then(if (cinema) Modifier else Modifier.background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.6f), Color.Transparent))))
@@ -369,7 +454,7 @@ private fun TopChrome(title: String, subtitle: String, cinema: Boolean, onClose:
         }
         if (onPlaylist != null) IconButton(onClick = onPlaylist) { Icon(Icons.AutoMirrored.Outlined.PlaylistPlay, "Playlist", tint = Color.White) }
         IconButton(onClick = {}) { Icon(Icons.Outlined.Cast, "Cast", tint = Color.White) }
-        IconButton(onClick = {}) { Icon(Icons.Outlined.PictureInPictureAlt, "PiP", tint = Color.White) }
+        IconButton(onClick = { onPiP?.invoke() }) { Icon(Icons.Outlined.PictureInPictureAlt, "PiP", tint = Color.White) }
         IconButton(onClick = {}) { Icon(Icons.Outlined.MoreVert, "More", tint = Color.White) }
     }
 }
