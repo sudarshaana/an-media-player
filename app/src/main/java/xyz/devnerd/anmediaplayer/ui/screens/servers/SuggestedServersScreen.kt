@@ -1,5 +1,6 @@
 package xyz.devnerd.anmediaplayer.ui.screens.servers
 
+import android.app.Application
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
@@ -49,8 +50,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -59,6 +58,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -70,69 +72,71 @@ import xyz.devnerd.anmediaplayer.data.IspServer
 import xyz.devnerd.anmediaplayer.data.Server
 import xyz.devnerd.anmediaplayer.data.UrlReach
 
-private enum class Phase { DETECTING, READY }
+enum class Phase { DETECTING, READY }
 
 private val ONLINE = Color(0xFF2E7D32)
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun SuggestedServersScreen(
-    onClose: () -> Unit,
-    onBrowse: (serverId: String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val ctx = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var phase by remember { mutableStateOf(Phase.DETECTING) }
-    var isp by remember { mutableStateOf<IspInfo?>(null) }
-    val matched = remember { mutableStateListOf<IspServer>() }
-    var noMatch by remember { mutableStateOf(false) }
-    var showAll by remember { mutableStateOf(false) }
-    var query by remember { mutableStateOf("") }
+/**
+ * Holds Suggested-screen state across navigation. Scoped to the nav back-stack
+ * entry, so Browse → back preserves detected ISP, scan results and expansion;
+ * leaving the screen entirely clears it.
+ */
+class SuggestedViewModel(app: Application) : AndroidViewModel(app) {
+    var phase by mutableStateOf(Phase.DETECTING)
+    var isp by mutableStateOf<IspInfo?>(null)
+    val matched = mutableStateListOf<IspServer>()
+    var noMatch by mutableStateOf(false)
+    var showAll by mutableStateOf(false)
+    var query by mutableStateOf("")
+    var catalog by mutableStateOf<List<IspServer>>(emptyList())
 
-    // Reachability results per ISP (by name). null = not tested yet.
-    val reachMap = remember { mutableStateMapOf<String, List<UrlReach>>() }
-    var expanded by remember { mutableStateOf<String?>(null) }
-    var probingIsp by remember { mutableStateOf<String?>(null) }
+    // Reachability per ISP (by name). Absent = not tested yet.
+    val reachMap = mutableStateMapOf<String, List<UrlReach>>()
+    var expanded by mutableStateOf<String?>(null)
+    var probingIsp by mutableStateOf<String?>(null)
 
-    // Test-all scan state.
-    var scanning by remember { mutableStateOf(false) }
-    var scanIdx by remember { mutableIntStateOf(0) }
-    var scanTotal by remember { mutableIntStateOf(0) }
-    var scanJob by remember { mutableStateOf<Job?>(null) }
+    var scanning by mutableStateOf(false)
+    var scanIdx by mutableIntStateOf(0)
+    var scanTotal by mutableIntStateOf(0)
+    private var scanJob: Job? = null
 
-    LaunchedEffect(Unit) {
-        val catalog = BdixCatalog.load(ctx)
-        val info = IspDetector.detect()
-        isp = info
-        val matches = if (info != null) BdixCatalog.match(catalog, info) else emptyList()
-        matched.clear()
-        matched.addAll(matches.map { it.server })
-        noMatch = matched.isEmpty()
-        showAll = matched.isEmpty()
-        phase = Phase.READY
+    private var started = false
+
+    fun start() {
+        if (started) return
+        started = true
+        catalog = BdixCatalog.load(getApplication())
+        viewModelScope.launch {
+            val info = IspDetector.detect()
+            isp = info
+            val matches = if (info != null) BdixCatalog.match(catalog, info) else emptyList()
+            matched.clear()
+            matched.addAll(matches.map { it.server })
+            noMatch = matched.isEmpty()
+            showAll = matched.isEmpty()
+            phase = Phase.READY
+        }
     }
-
-    val catalog = remember { BdixCatalog.load(ctx) }
-    val shown = if (showAll) {
-        if (query.isBlank()) catalog
-        else catalog.filter { it.name.contains(query, ignoreCase = true) || it.urls.any { u -> u.contains(query, ignoreCase = true) } }
-    } else matched
 
     fun probe(s: IspServer) {
         if (reachMap[s.name] != null || probingIsp == s.name) return
-        scope.launch {
+        viewModelScope.launch {
             probingIsp = s.name
             reachMap[s.name] = BdixCatalog.probe(s)
             probingIsp = null
         }
     }
 
+    fun toggle(s: IspServer) {
+        if (expanded == s.name) expanded = null
+        else { expanded = s.name; probe(s) }
+    }
+
     fun startScan(list: List<IspServer>) {
         scanTotal = list.size
         scanIdx = 0
         scanning = true
-        scanJob = scope.launch {
+        scanJob = viewModelScope.launch {
             for (s in list) {
                 if (!isActive) break
                 if (reachMap[s.name] == null) reachMap[s.name] = BdixCatalog.probe(s)
@@ -142,10 +146,27 @@ fun SuggestedServersScreen(
         }
     }
 
-    fun saveUrl(name: String, url: String) {
-        AppRepo.addServer(buildSuggestedServer(name, url))
-        Toast.makeText(ctx, "Added ${prettyIspName(name)}", Toast.LENGTH_SHORT).show()
+    fun stopScan() {
+        scanJob?.cancel()
+        scanning = false
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SuggestedServersScreen(
+    onClose: () -> Unit,
+    onBrowse: (serverId: String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val ctx = LocalContext.current
+    val vm: SuggestedViewModel = viewModel()
+    LaunchedEffect(Unit) { vm.start() }
+
+    val shown = if (vm.showAll) {
+        if (vm.query.isBlank()) vm.catalog
+        else vm.catalog.filter { it.name.contains(vm.query, true) || it.urls.any { u -> u.contains(vm.query, true) } }
+    } else vm.matched
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -159,7 +180,7 @@ fun SuggestedServersScreen(
             )
         },
     ) { inner ->
-        if (phase == Phase.DETECTING) {
+        if (vm.phase == Phase.DETECTING) {
             Box(Modifier.fillMaxSize().padding(inner), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     CircularProgressIndicator()
@@ -173,9 +194,9 @@ fun SuggestedServersScreen(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = inner.calculateTopPadding() + 4.dp, bottom = 96.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            item { IspHeader(isp) }
+            item { IspHeader(vm.isp) }
 
-            if (noMatch && !showAll) {
+            if (vm.noMatch && !vm.showAll) {
                 item {
                     Text(
                         "No provider matched your ISP automatically. Browse the full list below.",
@@ -188,18 +209,18 @@ fun SuggestedServersScreen(
 
             item {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (matched.isNotEmpty()) {
-                        FilterChip(selected = !showAll, onClick = { showAll = false }, label = { Text("Matched (${matched.size})") })
+                    if (vm.matched.isNotEmpty()) {
+                        FilterChip(selected = !vm.showAll, onClick = { vm.showAll = false }, label = { Text("Matched (${vm.matched.size})") })
                     }
-                    FilterChip(selected = showAll, onClick = { showAll = true }, label = { Text("All providers") })
+                    FilterChip(selected = vm.showAll, onClick = { vm.showAll = true }, label = { Text("All providers") })
                 }
             }
 
-            if (showAll) {
+            if (vm.showAll) {
                 item {
                     OutlinedTextField(
-                        value = query,
-                        onValueChange = { query = it },
+                        value = vm.query,
+                        onValueChange = { vm.query = it },
                         placeholder = { Text("Search providers") },
                         leadingIcon = { Icon(Icons.Outlined.Search, null) },
                         singleLine = true,
@@ -208,24 +229,23 @@ fun SuggestedServersScreen(
                 }
             }
 
-            // Test-all control.
             item {
-                if (scanning) {
+                if (vm.scanning) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Text("Testing $scanIdx of $scanTotal…", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
-                            OutlinedButton(onClick = { scanJob?.cancel(); scanning = false }) {
+                            Text("Testing ${vm.scanIdx} of ${vm.scanTotal}…", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+                            OutlinedButton(onClick = { vm.stopScan() }) {
                                 Icon(Icons.Outlined.Stop, null, modifier = Modifier.size(18.dp))
                                 Text("  Stop")
                             }
                         }
                         LinearProgressIndicator(
-                            progress = { if (scanTotal == 0) 0f else scanIdx.toFloat() / scanTotal },
+                            progress = { if (vm.scanTotal == 0) 0f else vm.scanIdx.toFloat() / vm.scanTotal },
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }
                 } else {
-                    FilledTonalButton(onClick = { startScan(shown) }, modifier = Modifier.fillMaxWidth(), enabled = shown.isNotEmpty()) {
+                    FilledTonalButton(onClick = { vm.startScan(shown) }, modifier = Modifier.fillMaxWidth(), enabled = shown.isNotEmpty()) {
                         Icon(Icons.Outlined.TravelExplore, null, modifier = Modifier.size(18.dp))
                         Text("  Test all (${shown.size})")
                     }
@@ -235,21 +255,21 @@ fun SuggestedServersScreen(
             items(shown, key = { it.name }) { s ->
                 IspCard(
                     server = s,
-                    reach = reachMap[s.name],
-                    expanded = expanded == s.name,
-                    probing = probingIsp == s.name,
-                    onToggle = {
-                        if (expanded == s.name) expanded = null
-                        else { expanded = s.name; probe(s) }
-                    },
+                    reach = vm.reachMap[s.name],
+                    expanded = vm.expanded == s.name,
+                    probing = vm.probingIsp == s.name,
+                    onToggle = { vm.toggle(s) },
                     onBrowse = { url ->
                         val srv = buildSuggestedServer(s.name, url)
                         AppRepo.addTransient(srv)
                         onBrowse(srv.id)
                     },
-                    onAdd = { url -> saveUrl(s.name, url) },
+                    onAdd = { url ->
+                        AppRepo.addServer(buildSuggestedServer(s.name, url))
+                        Toast.makeText(ctx, "Added ${prettyIspName(s.name)}", Toast.LENGTH_SHORT).show()
+                    },
                     onAddAll = {
-                        val online = (reachMap[s.name] ?: emptyList()).filter { it.online }
+                        val online = (vm.reachMap[s.name] ?: emptyList()).filter { it.online }
                         online.forEach { AppRepo.addServer(buildSuggestedServer(s.name, it.url)) }
                         Toast.makeText(ctx, "Added ${online.size} server${if (online.size == 1) "" else "s"}", Toast.LENGTH_SHORT).show()
                     },
@@ -304,7 +324,7 @@ private fun IspCard(
                 ) { Icon(Icons.Outlined.Dns, null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(22.dp)) }
                 Column(Modifier.weight(1f)) {
                     Text(prettyIspName(server.name), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Spacer4()
+                    Box(Modifier.size(0.dp, 2.dp))
                     CardSummary(server = server, reach = reach, probing = probing)
                 }
             }
@@ -394,9 +414,6 @@ private fun ReachDot(online: Boolean?, checking: Boolean) {
         else -> Box(Modifier.size(9.dp).clip(CircleShape).background(MaterialTheme.colorScheme.outline))
     }
 }
-
-@Composable
-private fun Spacer4() = Box(Modifier.size(0.dp, 2.dp))
 
 /** "BUSINESS NETWORK (FTPBD) FTP SERVER" → "Business Network (FTPBD)". */
 private fun prettyIspName(raw: String): String =
