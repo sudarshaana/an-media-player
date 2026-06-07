@@ -6,7 +6,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -42,6 +44,40 @@ import xyz.devnerd.anmediaplayer.data.cleanTitle
 import xyz.devnerd.anmediaplayer.ui.components.Poster
 import xyz.devnerd.anmediaplayer.ui.components.coverBrush
 
+/** Poster hero banner shown atop a media folder (cover image + title overlaid). */
+@Composable
+fun MediaHero(imageUrl: String?, title: String, sub: String, seed: String) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 8.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .aspectRatio(16f / 9f)
+            .background(coverBrush(seed)),
+        contentAlignment = Alignment.BottomStart,
+    ) {
+        if (imageUrl != null) {
+            coil3.compose.AsyncImage(
+                model = imageUrl,
+                contentDescription = null,
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+        Box(
+            Modifier.fillMaxSize().background(
+                androidx.compose.ui.graphics.Brush.verticalGradient(
+                    0.45f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.78f),
+                ),
+            ),
+        )
+        Column(Modifier.padding(16.dp)) {
+            Text(title, style = MaterialTheme.typography.titleLarge, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            if (sub.isNotBlank()) Text(sub, style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.85f), modifier = Modifier.padding(top = 2.dp))
+        }
+    }
+}
+
 fun entryIcon(type: EntryType, isImageFolder: Boolean): ImageVector = when {
     isImageFolder -> Icons.Outlined.Image
     type == EntryType.DIR -> Icons.Outlined.Folder
@@ -63,17 +99,25 @@ private fun tileColors(type: EntryType): TileColors = with(MaterialTheme.colorSc
     }
 }
 
-/** 52dp leading tile: gradient art for video / cover-image folders, flat tone otherwise. */
+/** 52dp leading tile: real thumbnail if available, else gradient art / flat tone. */
 @Composable
-private fun LeadingTile(entry: Entry, artSeed: String?, watched: Boolean) {
+private fun LeadingTile(entry: Entry, artSeed: String?, thumbUrl: String?, watched: Boolean) {
     val colors = tileColors(entry.type)
     val showArt = artSeed != null
     Box(Modifier.size(52.dp).clip(RoundedCornerShape(13.dp)).background(colors.bg), contentAlignment = Alignment.Center) {
         if (showArt) Box(Modifier.size(52.dp).background(coverBrush(artSeed!!)))
+        if (thumbUrl != null) {
+            coil3.compose.AsyncImage(
+                model = thumbUrl,
+                contentDescription = null,
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                modifier = Modifier.size(52.dp),
+            )
+        }
         Icon(
             imageVector = entryIcon(entry.type, isImageFolder = showArt && entry.isDir),
             contentDescription = null,
-            tint = if (showArt) Color.White else colors.fg,
+            tint = if (showArt || thumbUrl != null) Color.White.copy(alpha = if (thumbUrl != null) 0f else 1f) else colors.fg,
             modifier = Modifier.size(24.dp),
         )
         if (watched) {
@@ -98,6 +142,7 @@ fun BrowseListRow(
     entry: Entry,
     meta: String,
     artSeed: String?,
+    thumbUrl: String?,
     watched: Boolean,
     pct: Float,
     res: String?,
@@ -112,13 +157,13 @@ fun BrowseListRow(
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        LeadingTile(entry, artSeed, watched)
+        LeadingTile(entry, artSeed, thumbUrl, watched)
         Column(Modifier.weight(1f).padding(start = 14.dp)) {
             Text(
                 if (entry.isDir) cleanTitle(entry.name) else entry.name,
                 style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.W700),
                 color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                maxLines = 2, overflow = TextOverflow.Ellipsis,
             )
             Text(
                 meta,
@@ -158,6 +203,7 @@ fun BrowseGridCard(
     watched: Boolean,
     pct: Float,
     res: String?,
+    imageUrl: String?,
     onClick: () -> Unit,
 ) {
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable(onClick = onClick)) {
@@ -168,6 +214,7 @@ fun BrowseGridCard(
             watched = watched,
             progress = if (pct > 1f && pct < 96f) pct.toInt() else null,
             badge = res,
+            imageUrl = imageUrl,
         )
         Text(
             sub,

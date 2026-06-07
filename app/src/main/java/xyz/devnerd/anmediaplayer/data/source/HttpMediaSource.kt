@@ -73,6 +73,24 @@ class HttpMediaSource(
             if (out.isNotEmpty()) return out.values.toList()
         }
 
+        // h5ai fallback table (raw HTTP response): <td class="fb-n"> name, fb-d date, fb-s size.
+        val fbRows = doc.select("table tr")
+        if (fbRows.any { it.selectFirst("td.fb-n") != null }) {
+            val out = LinkedHashMap<String, Entry>()
+            for (tr in fbRows) {
+                val a = tr.selectFirst("td.fb-n a[href]") ?: continue
+                val href = a.attr("href")
+                if (href.isBlank() || href == ".." || href.startsWith("?")) continue
+                val name = a.text().trim().ifBlank { Uri.decode(href.trimEnd('/').substringAfterLast('/')) }
+                if (name.isBlank() || name.equals("Parent Directory", true)) continue
+                val isDir = href.endsWith("/") || (tr.selectFirst("td.fb-i img")?.attr("alt")?.contains("folder", true) == true)
+                val mtime = tr.selectFirst("td.fb-d")?.text()?.trim()?.takeIf { it.isNotBlank() }?.substringBefore(' ')
+                val size = sizeFromText(tr.selectFirst("td.fb-s")?.text()?.trim())
+                out[name] = Entry(name, classify(name, isDir), isDir, size = size, mtime = mtime)
+            }
+            if (out.isNotEmpty()) return out.values.toList()
+        }
+
         // generic autoindex (nginx/Apache): resolve every <a href> and keep direct children.
         val out = LinkedHashMap<String, Entry>()
         for (a in doc.select("a[href]")) {
@@ -94,6 +112,18 @@ class HttpMediaSource(
     private fun isDescendant(baseUrl: String, abs: String): Boolean {
         val b = baseUrl.substringBefore('?').substringBefore('#')
         return abs.startsWith(b) && abs.trimEnd('/') != b.trimEnd('/')
+    }
+
+    /** Parse "1550541 KB" / "441 KB" / "1.5 GB" → bytes. */
+    private fun sizeFromText(s: String?): Long? {
+        if (s.isNullOrBlank()) return null
+        val parts = s.trim().split(Regex("\\s+"))
+        val num = parts.getOrNull(0)?.replace(",", "")?.toDoubleOrNull() ?: return null
+        val mult = when (parts.getOrNull(1)?.uppercase()) {
+            "KB" -> 1024.0; "MB" -> 1024.0 * 1024; "GB" -> 1024.0 * 1024 * 1024; "TB" -> 1024.0 * 1024 * 1024 * 1024
+            else -> 1.0
+        }
+        return (num * mult).toLong()
     }
 
     private fun parseSize(s: String): Long? {

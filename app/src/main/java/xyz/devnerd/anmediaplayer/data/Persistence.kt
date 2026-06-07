@@ -196,6 +196,32 @@ object MediaRepo {
         val s = AppRepo.serverById(serverId) ?: return ""
         return http.fileUrl(s, path, file)
     }
+
+    /** URL of the first image inside a folder (poster/cover), or null. */
+    suspend fun firstImageUrl(serverId: String, path: List<String>): String? {
+        val s = AppRepo.serverById(serverId) ?: return null
+        val entries = runCatching { http.list(s, path) }.getOrDefault(emptyList())
+        val img = entries.firstOrNull { it.type == EntryType.IMAGE } ?: return null
+        return http.fileUrl(s, path, img.name)
+    }
+}
+
+/** Lazy cache of folder cover-image URLs (snapshot-backed for Compose). */
+object ThumbCache {
+    private val cache = mutableStateMapOf<String, String?>()
+    private val inflight = mutableSetOf<String>()
+
+    fun key(serverId: String, path: List<String>) = "$serverId|${path.joinToString("/")}"
+    fun cached(key: String): String? = cache[key]
+    fun has(key: String): Boolean = cache.containsKey(key)
+
+    suspend fun resolve(serverId: String, path: List<String>) {
+        val k = key(serverId, path)
+        if (cache.containsKey(k) || k in inflight) return
+        inflight.add(k)
+        cache[k] = runCatching { MediaRepo.firstImageUrl(serverId, path) }.getOrNull()
+        inflight.remove(k)
+    }
 }
 
 /** In-memory download queue (offline execution deferred to a later phase). */

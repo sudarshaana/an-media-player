@@ -61,6 +61,7 @@ fun Poster(
     watched: Boolean = false,
     progress: Int? = null,
     badge: String? = null,
+    imageUrl: String? = null,
 ) {
     Box(
         modifier = modifier
@@ -69,6 +70,14 @@ fun Poster(
             .clip(RoundedCornerShape(cornerRadius.dp))
             .background(coverBrush(seed)),
     ) {
+        if (imageUrl != null) {
+            coil3.compose.AsyncImage(
+                model = imageUrl,
+                contentDescription = null,
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
         Box(Modifier.fillMaxSize().background(labelScrim))
 
         Icon(

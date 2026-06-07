@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
@@ -46,12 +47,14 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -75,6 +78,8 @@ import xyz.devnerd.anmediaplayer.data.naturalCompare
 import xyz.devnerd.anmediaplayer.data.prettyName
 import xyz.devnerd.anmediaplayer.data.progressKey
 import xyz.devnerd.anmediaplayer.settings.NavPattern
+import xyz.devnerd.anmediaplayer.ui.components.ImageViewer
+import xyz.devnerd.anmediaplayer.ui.components.rememberFolderThumb
 
 private enum class SortBy(val label: String, val icon: ImageVector) {
     NAME("Name", Icons.Outlined.SortByAlpha),
@@ -101,6 +106,8 @@ fun BrowserScreen(
     onOpenFolder: (String, List<String>) -> Unit,
     onPlay: (String, List<String>, String, Int?) -> Unit,
     onDownload: (Entry) -> Unit = {},
+    onSetView: (Boolean) -> Unit = {},
+    onPlayEpisode: (List<xyz.devnerd.anmediaplayer.data.EpisodeRef>, xyz.devnerd.anmediaplayer.data.EpisodeRef) -> Unit = { _, _ -> },
     onUp: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -117,8 +124,10 @@ fun BrowserScreen(
     var asc by remember { mutableStateOf(true) }
     var sortOpen by remember { mutableStateOf(false) }
     var menuFor by remember { mutableStateOf<Entry?>(null) }
+    var imageViewer by remember { mutableStateOf<String?>(null) }
+    var refreshKey by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(serverId, pathKey) {
+    LaunchedEffect(serverId, pathKey, refreshKey) {
         loading = true; errorMsg = null
         runCatching { MediaRepo.list(serverId, path) }
             .onSuccess { loaded = it; loading = false }
@@ -141,21 +150,38 @@ fun BrowserScreen(
 
     val title = if (path.isNotEmpty()) cleanTitle(path.last()) else (server?.name ?: "Browse")
     val bookmarked = path.isNotEmpty() && isBookmarked(serverId, path)
+    // Cover image inside the current folder → poster for this folder's video files + hero.
+    val coverEntry = remember(loaded) { loaded.firstOrNull { it.type == EntryType.IMAGE } }
+    val folderImageUrl = remember(loaded) { coverEntry?.let { MediaRepo.fileUrl(serverId, path, it.name) } }
+    val hasVideos = remember(loaded) { loaded.any { it.type == EntryType.VIDEO } }
+    val seasons = remember(loaded) { xyz.devnerd.anmediaplayer.data.detectSeasons(loaded, path) }
+    val isSeries = seasons.isNotEmpty() && !searching
+    val showHero = path.isNotEmpty() && folderImageUrl != null && hasVideos
+    val heroSub = remember(pathKey) {
+        val raw = path.lastOrNull() ?: ""
+        listOfNotNull(Regex("(19|20)\\d{2}").find(raw)?.value, resFor(raw)).joinToString(" · ")
+    }
 
     fun fileMeta(e: Entry): String {
-        if (e.isDir) return "Folder"
         val parts = mutableListOf<String>()
-        e.size?.let { parts.add(fmtSize(it)) }
-        if (e.type == EntryType.VIDEO) e.durSec?.let { parts.add(fmtDur(it)) }
-        if (e.type == EntryType.SUBTITLE) parts.add("Subtitle")
-        if (e.type == EntryType.IMAGE) parts.add("Image")
+        if (e.isDir) {
+            parts.add("Folder")
+        } else {
+            e.size?.let { parts.add(fmtSize(it)) }
+            if (e.type == EntryType.VIDEO) e.durSec?.let { parts.add(fmtDur(it)) }
+            if (e.type == EntryType.SUBTITLE) parts.add("Subtitle")
+            if (e.type == EntryType.IMAGE) parts.add("Image")
+        }
         e.mtime?.let { parts.add(fmtDate(it)) }
         return parts.joinToString("  ·  ")
     }
 
     fun open(e: Entry) {
-        if (e.isDir) onOpenFolder(serverId, path + e.name)
-        else if (e.type == EntryType.VIDEO) onPlay(serverId, path, e.name, e.durSec)
+        when {
+            e.isDir -> onOpenFolder(serverId, path + e.name)
+            e.type == EntryType.VIDEO -> onPlay(serverId, path, e.name, e.durSec)
+            e.type == EntryType.IMAGE -> imageViewer = MediaRepo.fileUrl(serverId, path, e.name)
+        }
     }
 
     Scaffold(
@@ -189,7 +215,7 @@ fun BrowserScreen(
                                 )
                             }
                         }
-                        IconButton(onClick = { grid = !grid }) {
+                        IconButton(onClick = { grid = !grid; onSetView(grid) }) {
                             Icon(if (grid) Icons.AutoMirrored.Outlined.ListIcon else Icons.Outlined.GridView, "Toggle view")
                         }
                         IconButton(onClick = { sortOpen = true }) { Icon(Icons.AutoMirrored.Outlined.Sort, "Sort") }
@@ -202,20 +228,44 @@ fun BrowserScreen(
             if (navPattern == NavPattern.BREADCRUMB && !searching) {
                 Breadcrumb(serverName = server?.name ?: "", path = path, onJump = { i -> onOpenFolder(serverId, path.take(i)) })
             }
+            PullToRefreshBox(
+                isRefreshing = loading && loaded.isNotEmpty(),
+                onRefresh = { refreshKey++ },
+                modifier = Modifier.weight(1f).fillMaxSize(),
+            ) {
             when {
                 loading -> Skeleton(list = !grid)
                 errorMsg != null -> ErrorState(errorMsg!!)
+                isSeries -> xyz.devnerd.anmediaplayer.ui.screens.series.SeriesView(
+                    serverId = serverId,
+                    seriesPath = path,
+                    title = title,
+                    posterUrl = folderImageUrl,
+                    seasons = seasons,
+                    isWatched = isWatched,
+                    getProgress = getProgress,
+                    onPlayEpisode = onPlayEpisode,
+                    modifier = Modifier.fillMaxSize(),
+                )
                 entries.isEmpty() -> EmptyState(searching = query.isNotBlank())
                 !grid -> LazyColumn(contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 2.dp, bottom = 24.dp)) {
-                    items(entries, key = { it.name }) { e ->
+                    if (showHero) item { MediaHero(folderImageUrl, title, heroSub, path.lastOrNull() ?: title) }
+                    items(entries.filter { !(showHero && it.name == coverEntry?.name) }, key = { it.name }) { e ->
                         val key = progressKey(serverId, path, e.name)
                         val isVid = e.type == EntryType.VIDEO
                         val pct = if (isVid && e.durSec != null) getProgress(key).toFloat() / e.durSec * 100 else 0f
                         val artSeed = if (isVid) e.name else null
+                        val thumb = when {
+                            e.isDir -> rememberFolderThumb(serverId, path + e.name)
+                            isVid -> folderImageUrl
+                            e.type == EntryType.IMAGE -> MediaRepo.fileUrl(serverId, path, e.name)
+                            else -> null
+                        }
                         BrowseListRow(
                             entry = e,
                             meta = fileMeta(e),
                             artSeed = artSeed,
+                            thumbUrl = thumb,
                             watched = isVid && isWatched(key, e.durSec),
                             pct = pct,
                             res = if (isVid) resFor(e.name) else null,
@@ -230,6 +280,7 @@ fun BrowserScreen(
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
+                    if (showHero) item(span = { GridItemSpan(maxLineSpan) }) { MediaHero(folderImageUrl, title, heroSub, path.lastOrNull() ?: title) }
                     items(gridEntries, key = { it.name }) { e ->
                         val key = progressKey(serverId, path, e.name)
                         val isVid = e.type == EntryType.VIDEO
@@ -241,6 +292,11 @@ fun BrowserScreen(
                             np?.secondary?.isNotBlank() == true -> np.secondary
                             else -> e.durSec?.let { fmtDur(it) } ?: ""
                         }
+                        val thumb = when {
+                            e.isDir -> rememberFolderThumb(serverId, path + e.name)
+                            isVid -> folderImageUrl
+                            else -> null
+                        }
                         BrowseGridCard(
                             entry = e,
                             posterSeed = e.name,
@@ -250,10 +306,12 @@ fun BrowserScreen(
                             watched = isVid && isWatched(key, e.durSec),
                             pct = pct,
                             res = if (isVid) resFor(e.name) else null,
+                            imageUrl = thumb,
                             onClick = { open(e) },
                         )
                     }
                 }
+            }
             }
         }
     }
@@ -287,6 +345,8 @@ fun BrowserScreen(
             onDownload = { onDownload(e); menuFor = null },
         )
     }
+
+    imageViewer?.let { url -> ImageViewer(url = url, onClose = { imageViewer = null }) }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

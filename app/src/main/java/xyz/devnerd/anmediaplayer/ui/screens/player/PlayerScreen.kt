@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.automirrored.outlined.PlaylistPlay
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
@@ -105,6 +106,9 @@ fun PlayerScreen(
     keepScreenOn: Boolean,
     hasPrev: Boolean,
     hasNext: Boolean,
+    playlist: List<String> = emptyList(),
+    currentIndex: Int = -1,
+    onSelectIndex: (Int) -> Unit = {},
     onPrev: () -> Unit,
     onNext: () -> Unit,
     onClose: () -> Unit,
@@ -145,6 +149,7 @@ fun PlayerScreen(
     var audioIndex by remember { mutableIntStateOf(0) }
     var resize by remember { mutableStateOf("fit") }
     var sheet by remember { mutableStateOf<PlayerSheet?>(null) }
+    var showPlaylist by remember { mutableStateOf(false) }
     var scrubbing by remember { mutableStateOf(false) }
     var seekFx by remember { mutableStateOf<SeekFx?>(null) }
     var gesture by remember { mutableStateOf<Gesture?>(null) }
@@ -185,10 +190,16 @@ fun PlayerScreen(
     fun togglePlay() { if (exo.isPlaying) exo.pause() else exo.play(); poke() }
     fun applySub(idx: Int) {
         subIndex = idx
+        val on = idx != 0
         exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()
-            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, idx == 0).build()
+            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, !on)
+            .setPreferredTextLanguage(if (on) "en" else null)
+            .setSelectUndeterminedTextLanguage(on)
+            .build()
     }
     fun applySpeed(s: Float) { speed = s; exo.setPlaybackSpeed(s) }
+
+    LaunchedEffect(exo) { if (subtitlesDefault) applySub(1) }
 
     val subTracks = listOf("Off", if (subtitleUrl != null) "English  ·  ${subtitleUrl.substringAfterLast('/')}" else "English (auto)", "English (SDH)", "Español")
     val audioTracks = listOf("English  ·  5.1 EAC3", "Japanese  ·  2.0 AAC", "Director commentary")
@@ -303,7 +314,7 @@ fun PlayerScreen(
         }
 
         AnimatedVisibility(showUI, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.TopCenter)) {
-            TopChrome(np.primary, subtitleLabel, cinema, onClose)
+            TopChrome(np.primary, subtitleLabel, cinema, onClose, onPlaylist = if (playlist.size > 1) ({ showPlaylist = true }) else null)
         }
         if (!minimal) {
             AnimatedVisibility(showUI, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.Center)) {
@@ -339,10 +350,12 @@ fun PlayerScreen(
         PlayerSheet.RESIZE -> ResizeSheet(resizes, resize, onPick = { resize = it; sheet = null }, onDismiss = { sheet = null })
         null -> Unit
     }
+
+    if (showPlaylist) PlaylistSheet(playlist, currentIndex, onPick = { onSelectIndex(it); showPlaylist = false }, onDismiss = { showPlaylist = false })
 }
 
 @Composable
-private fun TopChrome(title: String, subtitle: String, cinema: Boolean, onClose: () -> Unit) {
+private fun TopChrome(title: String, subtitle: String, cinema: Boolean, onClose: () -> Unit, onPlaylist: (() -> Unit)? = null) {
     Row(
         Modifier.fillMaxWidth()
             .then(if (cinema) Modifier else Modifier.background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.6f), Color.Transparent))))
@@ -354,6 +367,7 @@ private fun TopChrome(title: String, subtitle: String, cinema: Boolean, onClose:
             Text(title, style = MaterialTheme.typography.titleSmall, color = Color.White, maxLines = 1)
             Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f), maxLines = 1)
         }
+        if (onPlaylist != null) IconButton(onClick = onPlaylist) { Icon(Icons.AutoMirrored.Outlined.PlaylistPlay, "Playlist", tint = Color.White) }
         IconButton(onClick = {}) { Icon(Icons.Outlined.Cast, "Cast", tint = Color.White) }
         IconButton(onClick = {}) { Icon(Icons.Outlined.PictureInPictureAlt, "PiP", tint = Color.White) }
         IconButton(onClick = {}) { Icon(Icons.Outlined.MoreVert, "More", tint = Color.White) }

@@ -28,6 +28,7 @@ import xyz.devnerd.anmediaplayer.data.AppRepo
 import xyz.devnerd.anmediaplayer.data.DownloadsStore
 import xyz.devnerd.anmediaplayer.data.prettyName
 import xyz.devnerd.anmediaplayer.settings.AppSettings
+import xyz.devnerd.anmediaplayer.settings.BrowseView
 import xyz.devnerd.anmediaplayer.ui.nav.TopDest
 import xyz.devnerd.anmediaplayer.ui.screens.browser.BrowserScreen
 import xyz.devnerd.anmediaplayer.ui.screens.player.PlaybackRequest
@@ -153,6 +154,8 @@ fun App(
                         val np = prettyName(e.name)
                         DownloadsStore.add(server, path, e.name, np.primary, np.secondary.ifBlank { e.name }, e.size ?: 0, e.durSec ?: 0)
                     },
+                    onSetView = { g -> settingsActions.onBrowseView(if (g) BrowseView.GRID else BrowseView.LIST) },
+                    onPlayEpisode = { pl, start -> playback = PlaybackRequest(server, start.path, start.file, start.durSec, playlist = pl) },
                     onUp = { navController.popBackStack() },
                 )
             }

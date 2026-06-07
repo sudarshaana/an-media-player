@@ -24,6 +24,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import xyz.devnerd.anmediaplayer.data.AppRepo
 import xyz.devnerd.anmediaplayer.data.Entry
+import xyz.devnerd.anmediaplayer.data.EpisodeRef
 import xyz.devnerd.anmediaplayer.data.MediaRepo
 import xyz.devnerd.anmediaplayer.data.prettyName
 import xyz.devnerd.anmediaplayer.data.progressKey
@@ -38,6 +39,8 @@ data class PlaybackRequest(
     val file: String,
     val durSec: Int,
     val resumeImmediately: Boolean = false,
+    /** Cross-folder playlist (e.g. a whole series). Null = use the file's folder siblings. */
+    val playlist: List<EpisodeRef>? = null,
 )
 
 @Composable
@@ -58,35 +61,37 @@ fun PlayerHost(request: PlaybackRequest, settings: AppSettings, onClose: () -> U
         }
     }
 
+    var curPath by remember { mutableStateOf(request.path) }
     var file by remember { mutableStateOf(request.file) }
     var durSec by remember { mutableIntStateOf(request.durSec) }
     var ended by remember { mutableStateOf(false) }
     var restartToken by remember { mutableIntStateOf(0) }
 
-    // Load the folder so we have the playlist + matching subtitle.
-    var entries by remember(request.path.joinToString("/")) { mutableStateOf<List<Entry>?>(null) }
-    LaunchedEffect(request.serverId, request.path.joinToString("/")) {
-        entries = runCatching { MediaRepo.list(request.serverId, request.path) }.getOrDefault(emptyList())
+    // Listing of the current episode's folder — for subtitle match (+ folder-siblings playlist).
+    val curKeyPath = curPath.joinToString("/")
+    var entries by remember(curKeyPath) { mutableStateOf<List<Entry>?>(null) }
+    LaunchedEffect(request.serverId, curKeyPath) {
+        entries = runCatching { MediaRepo.list(request.serverId, curPath) }.getOrDefault(emptyList())
     }
-
     val loaded = entries
     if (loaded == null) {
         Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Color.White) }
         return
     }
 
-    val playlist = naturalVideoSort(loaded)
-    val idx = playlist.indexOfFirst { it.name == file }
-    val nextFile = playlist.getOrNull(idx + 1)?.name
-    val prevFile = playlist.getOrNull(idx - 1)?.name
+    val playlist: List<EpisodeRef> = request.playlist
+        ?: naturalVideoSort(loaded).map { EpisodeRef(curPath, it.name, it.durSec ?: 0) }
+    val idx = playlist.indexOfFirst { it.path == curPath && it.file == file }
+    val nextEp = playlist.getOrNull(idx + 1)
+    val prevEp = playlist.getOrNull(idx - 1)
 
-    val key = progressKey(request.serverId, request.path, file)
+    val key = progressKey(request.serverId, curPath, file)
     val saved = AppRepo.getProgress(key)
 
-    val decision = remember(file, restartToken) {
-        val pos = AppRepo.getProgress(progressKey(request.serverId, request.path, file))
+    val decision = remember(file, curKeyPath, restartToken) {
+        val pos = AppRepo.getProgress(progressKey(request.serverId, curPath, file))
         val eligible = pos > 30 && durSec > 0 && pos < durSec - 90
-        val isFirst = file == request.file && restartToken == 0
+        val isFirst = file == request.file && curPath == request.path && restartToken == 0
         when {
             !isFirst -> 0 to false
             request.resumeImmediately && eligible -> pos to false
@@ -95,20 +100,16 @@ fun PlayerHost(request: PlaybackRequest, settings: AppSettings, onClose: () -> U
             else -> 0 to false
         }
     }
-    var startAt by remember(file, restartToken) { mutableIntStateOf(decision.first) }
-    var asking by remember(file, restartToken) { mutableStateOf(decision.second) }
+    var startAt by remember(file, curKeyPath, restartToken) { mutableIntStateOf(decision.first) }
+    var asking by remember(file, curKeyPath, restartToken) { mutableStateOf(decision.second) }
 
     val np = prettyName(file)
-    val streamUrl = MediaRepo.fileUrl(request.serverId, request.path, file)
-    val subtitleUrl = matchSubtitle(loaded, file)?.let { MediaRepo.fileUrl(request.serverId, request.path, it.name) }
+    val streamUrl = MediaRepo.fileUrl(request.serverId, curPath, file)
+    val subtitleUrl = matchSubtitle(loaded, file)?.let { MediaRepo.fileUrl(request.serverId, curPath, it.name) }
 
-    fun playNext() {
-        val n = playlist.getOrNull(idx + 1) ?: return
-        durSec = n.durSec ?: 0; ended = false; restartToken = 0; file = n.name
-    }
-    fun playPrev() {
-        val p = playlist.getOrNull(idx - 1) ?: return
-        durSec = p.durSec ?: 0; ended = false; restartToken = 0; file = p.name
+    fun goTo(ep: EpisodeRef?) {
+        ep ?: return
+        durSec = ep.durSec; ended = false; restartToken = 0; curPath = ep.path; file = ep.file
     }
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
@@ -120,10 +121,10 @@ fun PlayerHost(request: PlaybackRequest, settings: AppSettings, onClose: () -> U
                 onDismiss = onClose,
             )
             ended -> EndPanel(
-                finishedFile = file, nextFile = nextFile, autoPlay = settings.autoPlayNext,
-                onNext = { playNext() }, onRestart = { ended = false; restartToken++ }, onBack = onClose, onClose = onClose,
+                finishedFile = file, nextFile = nextEp?.file, autoPlay = settings.autoPlayNext,
+                onNext = { goTo(nextEp) }, onRestart = { ended = false; restartToken++ }, onBack = onClose, onClose = onClose,
             )
-            else -> key(file, restartToken) {
+            else -> key(curKeyPath, file, restartToken) {
                 PlayerScreen(
                     title = np.primary,
                     subtitleLabel = np.secondary.ifBlank { file },
@@ -134,13 +135,16 @@ fun PlayerHost(request: PlaybackRequest, settings: AppSettings, onClose: () -> U
                     layout = settings.playerLayout,
                     subtitlesDefault = settings.subtitlesDefault,
                     keepScreenOn = settings.keepScreenOn,
-                    hasPrev = prevFile != null,
-                    hasNext = nextFile != null,
-                    onPrev = { playPrev() },
-                    onNext = { playNext() },
+                    hasPrev = prevEp != null,
+                    hasNext = nextEp != null,
+                    playlist = playlist.map { it.file.substringBeforeLast('.') },
+                    currentIndex = idx,
+                    onSelectIndex = { i -> goTo(playlist.getOrNull(i)) },
+                    onPrev = { goTo(prevEp) },
+                    onNext = { goTo(nextEp) },
                     onClose = onClose,
                     onEnded = { ended = true },
-                    saveProgress = { pos, dur -> AppRepo.saveProgress(request.serverId, request.path, file, pos, dur, System.currentTimeMillis()) },
+                    saveProgress = { pos, dur -> AppRepo.saveProgress(request.serverId, curPath, file, pos, dur, System.currentTimeMillis()) },
                 )
             }
         }
