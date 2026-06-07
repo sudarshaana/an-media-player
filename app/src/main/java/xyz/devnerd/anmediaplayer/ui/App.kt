@@ -2,8 +2,10 @@ package xyz.devnerd.anmediaplayer.ui
 
 import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -63,6 +65,7 @@ fun App(
     androidx.compose.runtime.LaunchedEffect(currentDest?.route) { navVisible = true }
 
     val appContext = androidx.compose.ui.platform.LocalContext.current
+    val isTv = remember(appContext) { xyz.devnerd.anmediaplayer.ui.components.isTvDevice(appContext) }
     var playback by remember { mutableStateOf<PlaybackRequest?>(null) }
     val play: (String, List<String>, String, Int?) -> Unit = { server, path, file, dur ->
         playback = PlaybackRequest(server, path, file, dur ?: 0)
@@ -73,15 +76,20 @@ fun App(
         xyz.devnerd.anmediaplayer.data.ServerHealth.checkAll(AppRepo.servers.toList())
     }
 
+    androidx.compose.runtime.CompositionLocalProvider(
+        xyz.devnerd.anmediaplayer.ui.components.LocalIsTv provides isTv,
+    ) {
     Box(Modifier.fillMaxSize()) {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
             // Hide the bottom bar for full-screen routes (Connect, Browser, later Player).
+            // Shrink/expand (not slide): the bar's measured height animates, so the
+            // Scaffold's content padding tracks it smoothly — no revealed band, no snap.
             AnimatedVisibility(
                 visible = (onTopDest || onBrowse) && navVisible,
-                enter = slideInVertically { it },
-                exit = slideOutVertically { it },
+                enter = expandVertically(expandFrom = androidx.compose.ui.Alignment.Top) + fadeIn(),
+                exit = shrinkVertically(shrinkTowards = androidx.compose.ui.Alignment.Top) + fadeOut(),
             ) {
                 NavigationBar {
                     TopDest.entries.forEach { dest ->
@@ -192,6 +200,7 @@ fun App(
         playback?.let { req ->
             PlayerHost(request = req, settings = settings, onClose = { playback = null })
         }
+    }
     }
 }
 

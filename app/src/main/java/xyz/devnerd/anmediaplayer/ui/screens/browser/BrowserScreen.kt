@@ -118,6 +118,7 @@ fun BrowserScreen(
     onUp: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val isTv = xyz.devnerd.anmediaplayer.ui.components.LocalIsTv.current
     val server = AppRepo.serverById(serverId)
     val pathKey = path.joinToString("/")
 
@@ -277,7 +278,7 @@ fun BrowserScreen(
                     modifier = Modifier.fillMaxSize(),
                 )
                 entries.isEmpty() -> EmptyState(searching = query.isNotBlank())
-                !grid -> LazyColumn(contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 2.dp, bottom = 24.dp)) {
+                !grid -> LazyColumn(contentPadding = PaddingValues(start = if (isTv) 32.dp else 8.dp, end = if (isTv) 32.dp else 8.dp, top = 2.dp, bottom = if (isTv) 56.dp else 24.dp)) {
                     if (showHero) item { MediaHero(folderImageUrl, title, heroSub, path.lastOrNull() ?: title) }
                     items(entries.filter { !(showHero && it.name == coverEntry?.name) }, key = { it.name }) { e ->
                         val key = progressKey(serverId, path, e.name)
@@ -305,9 +306,11 @@ fun BrowserScreen(
                         )
                     }
                 }
+                // TV is wide → more columns + overscan-safe padding so the last
+                // row clears the screen edge.
                 else -> LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
+                    columns = GridCells.Fixed(if (isTv) 5 else 2),
+                    contentPadding = PaddingValues(start = if (isTv) 32.dp else 16.dp, end = if (isTv) 32.dp else 16.dp, top = if (isTv) 24.dp else 8.dp, bottom = if (isTv) 56.dp else 24.dp),
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {

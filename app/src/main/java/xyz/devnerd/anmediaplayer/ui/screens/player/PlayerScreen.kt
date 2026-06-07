@@ -6,6 +6,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.Key
@@ -87,6 +88,8 @@ import kotlinx.coroutines.delay
 import xyz.devnerd.anmediaplayer.data.PrettyName
 import xyz.devnerd.anmediaplayer.data.fmtDur
 import xyz.devnerd.anmediaplayer.settings.PlayerLayout
+import xyz.devnerd.anmediaplayer.ui.components.LocalIsTv
+import xyz.devnerd.anmediaplayer.ui.components.focusHighlight
 import kotlin.math.roundToInt
 
 private enum class PlayerSheet { SUBTITLE, AUDIO, SPEED, RESIZE }
@@ -142,6 +145,7 @@ fun PlayerScreen(
     saveProgress: (Int, Int) -> Unit,
 ) {
     val context = LocalContext.current
+    val isTv = LocalIsTv.current
     val activity = context as? android.app.Activity
     val audio = remember { context.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager }
     val maxVol = remember { audio.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC).coerceAtLeast(1) }
@@ -230,8 +234,10 @@ fun PlayerScreen(
     DisposableEffect(castPlayer, streamUrl) {
         val l = object : androidx.media3.cast.SessionAvailabilityListener {
             override fun onCastSessionAvailable() {
-                castPlayer?.apply { setMediaItem(MediaItem.fromUri(streamUrl)); playWhenReady = true; prepare(); seekTo(exo.currentPosition) }
-                exo.pause()
+                runCatching {
+                    castPlayer?.apply { setMediaItem(MediaItem.fromUri(streamUrl)); playWhenReady = true; prepare(); seekTo(exo.currentPosition) }
+                    exo.pause()
+                }
             }
             override fun onCastSessionUnavailable() { exo.play() }
         }
@@ -300,7 +306,14 @@ fun PlayerScreen(
 
     // D-pad / TV remote handling.
     val tvFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+    val playFocus = remember { androidx.compose.ui.focus.FocusRequester() }
     LaunchedEffect(Unit) { runCatching { tvFocus.requestFocus() } }
+    // When controls hide, pull focus back to the root so the remote keeps working.
+    // When they show on TV, land focus on the play button so Center toggles play.
+    LaunchedEffect(showUI, locked) {
+        if (!showUI || locked) runCatching { tvFocus.requestFocus() }
+        else if (isTv) { delay(50); runCatching { playFocus.requestFocus() } }
+    }
 
     Box(
         Modifier
@@ -310,16 +323,33 @@ fun PlayerScreen(
             .focusable()
             .onPreviewKeyEvent { ev ->
                 if (ev.type != androidx.compose.ui.input.key.KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                // Hardware media keys: always active regardless of UI state.
                 when (ev.key) {
-                    androidx.compose.ui.input.key.Key.DirectionCenter, androidx.compose.ui.input.key.Key.Enter, androidx.compose.ui.input.key.Key.MediaPlayPause -> { togglePlay(); true }
-                    androidx.compose.ui.input.key.Key.MediaPlay -> { exo.play(); poke(); true }
-                    androidx.compose.ui.input.key.Key.MediaPause -> { exo.pause(); poke(); true }
-                    androidx.compose.ui.input.key.Key.MediaFastForward -> { seekBy(10); poke(); true }
-                    androidx.compose.ui.input.key.Key.MediaRewind -> { seekBy(-10); poke(); true }
-                    androidx.compose.ui.input.key.Key.DirectionLeft -> if (!showUI && !locked) { seekBy(-10); seekFx = SeekFx(false, time.toLong()); true } else { poke(); false }
-                    androidx.compose.ui.input.key.Key.DirectionRight -> if (!showUI && !locked) { seekBy(10); seekFx = SeekFx(true, time.toLong()); true } else { poke(); false }
-                    androidx.compose.ui.input.key.Key.DirectionUp, androidx.compose.ui.input.key.Key.DirectionDown -> { poke(); false }
-                    else -> false
+                    androidx.compose.ui.input.key.Key.MediaPlayPause -> { togglePlay(); return@onPreviewKeyEvent true }
+                    androidx.compose.ui.input.key.Key.MediaPlay -> { exo.play(); poke(); return@onPreviewKeyEvent true }
+                    androidx.compose.ui.input.key.Key.MediaPause -> { exo.pause(); poke(); return@onPreviewKeyEvent true }
+                    androidx.compose.ui.input.key.Key.MediaFastForward -> { seekBy(10); poke(); return@onPreviewKeyEvent true }
+                    androidx.compose.ui.input.key.Key.MediaRewind -> { seekBy(-10); poke(); return@onPreviewKeyEvent true }
+                }
+                if (locked) {
+                    return@onPreviewKeyEvent when (ev.key) {
+                        androidx.compose.ui.input.key.Key.DirectionCenter, androidx.compose.ui.input.key.Key.Enter -> { locked = false; poke(); true }
+                        else -> { showUI = true; true }
+                    }
+                }
+                if (showUI) {
+                    // Controls visible: keep them alive and let the focus system move
+                    // between / activate the on-screen buttons (return false = not consumed).
+                    poke(); false
+                } else {
+                    // Controls hidden: D-pad drives playback directly.
+                    when (ev.key) {
+                        androidx.compose.ui.input.key.Key.DirectionCenter, androidx.compose.ui.input.key.Key.Enter -> { poke(); true }
+                        androidx.compose.ui.input.key.Key.DirectionLeft -> { seekBy(-10); seekFx = SeekFx(false, time.toLong()); true }
+                        androidx.compose.ui.input.key.Key.DirectionRight -> { seekBy(10); seekFx = SeekFx(true, time.toLong()); true }
+                        androidx.compose.ui.input.key.Key.DirectionUp, androidx.compose.ui.input.key.Key.DirectionDown -> { poke(); true }
+                        else -> false
+                    }
                 }
             },
     ) {
@@ -447,11 +477,11 @@ fun PlayerScreen(
         }
 
         AnimatedVisibility(showUI, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.TopCenter)) {
-            TopChrome(np.primary, subtitleLabel, cinema, onClose, onPlaylist = if (playlist.size > 1) ({ showPlaylist = true }) else null, onPiP = { enterPip() }, onMore = { showMore = true }, castSlot = if (castContext != null) ({ CastRouteButton() }) else null)
+            TopChrome(np.primary, subtitleLabel, cinema, onClose, onPlaylist = if (playlist.size > 1) ({ showPlaylist = true }) else null, onPiP = { enterPip() }, onMore = { showMore = true }, castSlot = if (castContext != null && !isTv) ({ CastRouteButton() }) else null)
         }
         if (!minimal) {
             AnimatedVisibility(showUI, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.Center)) {
-                CenterTransport(playing, hasPrev, hasNext, onPrev, onNext, onBack10 = { seekBy(-10) }, onFwd10 = { seekBy(10) }, onToggle = { togglePlay() })
+                CenterTransport(playing, hasPrev, hasNext, onPrev, onNext, onBack10 = { seekBy(-10) }, onFwd10 = { seekBy(10) }, onToggle = { togglePlay() }, playFocus = playFocus)
             }
         }
         if (cinema) {
@@ -549,11 +579,18 @@ private fun TopChrome(title: String, subtitle: String, cinema: Boolean, onClose:
 }
 
 @Composable
-private fun CenterTransport(playing: Boolean, hasPrev: Boolean, hasNext: Boolean, onPrev: () -> Unit, onNext: () -> Unit, onBack10: () -> Unit, onFwd10: () -> Unit, onToggle: () -> Unit) {
+private fun CenterTransport(playing: Boolean, hasPrev: Boolean, hasNext: Boolean, onPrev: () -> Unit, onNext: () -> Unit, onBack10: () -> Unit, onFwd10: () -> Unit, onToggle: () -> Unit, playFocus: androidx.compose.ui.focus.FocusRequester? = null) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(28.dp)) {
         IconButton(onClick = onPrev, enabled = hasPrev) { Icon(Icons.Filled.SkipPrevious, "Previous", tint = if (hasPrev) Color.White else Color.White.copy(alpha = 0.35f), modifier = Modifier.size(30.dp)) }
         IconButton(onClick = onBack10) { Icon(Icons.Outlined.Replay10, "-10s", tint = Color.White, modifier = Modifier.size(34.dp)) }
-        Box(Modifier.size(76.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.16f)).border(1.dp, Color.White.copy(alpha = 0.25f), CircleShape).pointerInput(Unit) { detectTapGestures { onToggle() } }, contentAlignment = Alignment.Center) {
+        Box(
+            Modifier.size(76.dp)
+                .then(if (playFocus != null) Modifier.focusRequester(playFocus) else Modifier)
+                .focusHighlight(CircleShape)
+                .clip(CircleShape).background(Color.White.copy(alpha = 0.16f)).border(1.dp, Color.White.copy(alpha = 0.25f), CircleShape)
+                .clickable { onToggle() },
+            contentAlignment = Alignment.Center,
+        ) {
             Icon(if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow, "Play/Pause", tint = Color.White, modifier = Modifier.size(40.dp))
         }
         IconButton(onClick = onFwd10) { Icon(Icons.Outlined.Forward10, "+10s", tint = Color.White, modifier = Modifier.size(34.dp)) }
@@ -589,7 +626,7 @@ fun Scrubber(time: Float, duration: Int, pct: Float, buffered: Float, scrubbing:
 @Composable
 private fun ControlButton(icon: ImageVector, label: String, active: Boolean, onDark: Color, cinema: Boolean, onClick: () -> Unit) {
     Column(
-        Modifier.clip(RoundedCornerShape(10.dp)).pointerInput(Unit) { detectTapGestures { onClick() } }.padding(horizontal = 8.dp, vertical = 6.dp),
+        Modifier.focusHighlight(RoundedCornerShape(10.dp)).clip(RoundedCornerShape(10.dp)).clickable { onClick() }.padding(horizontal = 8.dp, vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {
         Icon(icon, label, tint = if (active) MaterialTheme.colorScheme.primary else onDark, modifier = Modifier.size(22.dp))
@@ -651,7 +688,7 @@ private fun CinemaDeck(
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onPrev, enabled = hasPrev) { Icon(Icons.Filled.SkipPrevious, "Previous", tint = MaterialTheme.colorScheme.onSurface) }
             IconButton(onClick = onBack10) { Icon(Icons.Outlined.Replay10, "-10s", tint = MaterialTheme.colorScheme.onSurface) }
-            Box(Modifier.padding(horizontal = 18.dp).size(64.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary).pointerInput(Unit) { detectTapGestures { onToggle() } }, contentAlignment = Alignment.Center) {
+            Box(Modifier.padding(horizontal = 18.dp).focusHighlight(CircleShape).size(64.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary).clickable { onToggle() }, contentAlignment = Alignment.Center) {
                 Icon(if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow, "Play", tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(32.dp))
             }
             IconButton(onClick = onFwd10) { Icon(Icons.Outlined.Forward10, "+10s", tint = MaterialTheme.colorScheme.onSurface) }
@@ -664,12 +701,16 @@ private fun CinemaDeck(
 @Composable
 private fun CastRouteButton() {
     AndroidView(
+        // MediaRouteButton needs an AppCompat theme; its theme-helper can still throw
+        // ("background can not be translucent") on some device themes — fall back to an
+        // empty view rather than crash the player.
         factory = { ctx ->
-            // MediaRouteButton requires an AppCompat theme; wrap the Compose/Material context.
-            val themed = androidx.appcompat.view.ContextThemeWrapper(ctx, androidx.appcompat.R.style.Theme_AppCompat_DayNight_NoActionBar)
-            androidx.mediarouter.app.MediaRouteButton(themed).apply {
-                com.google.android.gms.cast.framework.CastButtonFactory.setUpMediaRouteButton(themed, this)
-            }
+            runCatching {
+                val themed = androidx.appcompat.view.ContextThemeWrapper(ctx, androidx.appcompat.R.style.Theme_AppCompat_DayNight_NoActionBar)
+                androidx.mediarouter.app.MediaRouteButton(themed).apply {
+                    com.google.android.gms.cast.framework.CastButtonFactory.setUpMediaRouteButton(themed, this)
+                } as android.view.View
+            }.getOrElse { android.view.View(ctx) }
         },
         modifier = Modifier.size(48.dp).padding(12.dp),
     )

@@ -14,15 +14,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.AspectRatio
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
@@ -33,6 +37,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+
+/** Sheet header: title + a D-pad-reachable close (X). TVs can't tap the scrim. */
+@Composable
+private fun SheetHeader(title: String, onClose: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(start = 24.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+        IconButton(onClick = onClose) { Icon(Icons.Outlined.Close, "Close", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,22 +63,24 @@ fun MoreSheet(
     onDismiss: () -> Unit,
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        Text("More", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
-        Row(
-            Modifier.fillMaxWidth().clickable { onToggleRepeat() }.padding(horizontal = 24.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp),
-        ) {
-            androidx.compose.material3.Icon(Icons.Outlined.Repeat, null, tint = if (repeatOne) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("Repeat", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
-            androidx.compose.material3.Switch(checked = repeatOne, onCheckedChange = { onToggleRepeat() })
+        SheetHeader("More", onDismiss)
+        Column(Modifier.verticalScroll(rememberScrollState())) {
+            Row(
+                Modifier.fillMaxWidth().clickable { onToggleRepeat() }.padding(horizontal = 24.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp),
+            ) {
+                androidx.compose.material3.Icon(Icons.Outlined.Repeat, null, tint = if (repeatOne) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Repeat", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+                androidx.compose.material3.Switch(checked = repeatOne, onCheckedChange = { onToggleRepeat() })
+            }
+            MoreAction(Icons.Outlined.Lock, "Lock screen", onLock)
+            MoreAction(Icons.Outlined.AspectRatio, "Resize", onResize)
+            androidx.compose.material3.HorizontalDivider(Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+            InfoRow("Resolution", resolution ?: "—")
+            InfoRow("Video", videoCodec ?: "—")
+            InfoRow("Audio", audioLabel ?: "—")
+            Box(Modifier.height(32.dp))
         }
-        MoreAction(Icons.Outlined.Lock, "Lock screen", onLock)
-        MoreAction(Icons.Outlined.AspectRatio, "Resize", onResize)
-        androidx.compose.material3.HorizontalDivider(Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
-        InfoRow("Resolution", resolution ?: "—")
-        InfoRow("Video", videoCodec ?: "—")
-        InfoRow("Audio", audioLabel ?: "—")
-        Box(Modifier.height(24.dp))
     }
 }
 
@@ -89,8 +107,8 @@ private fun InfoRow(k: String, v: String) {
 @Composable
 fun PlaylistSheet(items: List<String>, current: Int, onPick: (Int) -> Unit, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        Text("Playlist  ·  ${items.size}", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
-        androidx.compose.foundation.lazy.LazyColumn(modifier = Modifier.heightIn(max = 420.dp)) {
+        SheetHeader("Playlist  ·  ${items.size}", onDismiss)
+        androidx.compose.foundation.lazy.LazyColumn(modifier = Modifier.heightIn(max = 480.dp)) {
             itemsIndexed(items) { i, label ->
                 val on = i == current
                 Row(
@@ -120,33 +138,35 @@ fun PlaylistSheet(items: List<String>, current: Int, onPick: (Int) -> Unit, onDi
 @Composable
 fun TrackSheet(title: String, tracks: List<String>, selected: Int, onPick: (Int) -> Unit, onDismiss: () -> Unit, footer: String? = null) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
-        tracks.forEachIndexed { i, tk ->
-            val on = i == selected
-            Row(
-                Modifier.fillMaxWidth().clickable { onPick(i) }.padding(horizontal = 24.dp, vertical = 13.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                Box(Modifier.width(22.dp)) {
-                    if (on) Icon(Icons.Filled.Check, null, tint = MaterialTheme.colorScheme.primary)
+        SheetHeader(title, onDismiss)
+        Column(Modifier.verticalScroll(rememberScrollState())) {
+            tracks.forEachIndexed { i, tk ->
+                val on = i == selected
+                Row(
+                    Modifier.fillMaxWidth().clickable { onPick(i) }.padding(horizontal = 24.dp, vertical = 13.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Box(Modifier.width(22.dp)) {
+                        if (on) Icon(Icons.Filled.Check, null, tint = MaterialTheme.colorScheme.primary)
+                    }
+                    Text(
+                        tk,
+                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = if (on) FontWeight.W700 else FontWeight.W500),
+                        color = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                    )
                 }
+            }
+            if (footer != null) {
                 Text(
-                    tk,
-                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = if (on) FontWeight.W700 else FontWeight.W500),
-                    color = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                    footer,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.clickable { onDismiss() }.padding(horizontal = 24.dp, vertical = 12.dp),
                 )
             }
+            Box(Modifier.height(32.dp))
         }
-        if (footer != null) {
-            Text(
-                footer,
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.clickable { onDismiss() }.padding(horizontal = 24.dp, vertical = 12.dp),
-            )
-        }
-        Box(Modifier.height(24.dp))
     }
 }
 
@@ -154,7 +174,7 @@ fun TrackSheet(title: String, tracks: List<String>, selected: Int, onPick: (Int)
 @Composable
 fun SpeedSheet(speeds: List<Float>, selected: Float, onPick: (Float) -> Unit, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        Text("Playback speed", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+        SheetHeader("Playback speed", onDismiss)
         FlowRow(
             Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -182,7 +202,7 @@ fun SpeedSheet(speeds: List<Float>, selected: Float, onPick: (Float) -> Unit, on
 @Composable
 fun ResizeSheet(resizes: List<Pair<String, String>>, selected: String, onPick: (String) -> Unit, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        Text("Resize mode", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+        SheetHeader("Resize mode", onDismiss)
         resizes.forEach { (id, label) ->
             val on = id == selected
             Row(
