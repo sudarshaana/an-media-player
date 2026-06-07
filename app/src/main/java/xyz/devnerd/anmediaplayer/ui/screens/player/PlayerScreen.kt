@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.outlined.AspectRatio
 import androidx.compose.material.icons.outlined.Brightness6
 import androidx.compose.material.icons.outlined.Cast
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ClosedCaption
 import androidx.compose.material.icons.outlined.Fullscreen
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
@@ -118,6 +119,7 @@ fun PlayerScreen(
     streamUrl: String,
     subtitleUrl: String?,
     startAt: Int,
+    resumeFromSec: Int? = null,
     durSec: Int,
     layout: PlayerLayout,
     subtitlesDefault: Boolean,
@@ -184,6 +186,8 @@ fun PlayerScreen(
     var gesture by remember { mutableStateOf<Gesture?>(null) }
     var ffActive by remember { mutableStateOf(false) }
     var uiPoke by remember { mutableIntStateOf(0) }
+    var resumeOffer by remember(streamUrl) { mutableStateOf(resumeFromSec) }
+    LaunchedEffect(resumeOffer) { if (resumeOffer != null) { delay(8000); resumeOffer = null } }
 
     androidx.activity.compose.BackHandler {
         when {
@@ -219,7 +223,8 @@ fun PlayerScreen(
                 if (d > 0) duration = (d / 1000).toInt()
                 bufferedPct = if (exo.duration > 0) exo.bufferedPosition.toFloat() / exo.duration else 0f
             }
-            saveProgress(time.toInt(), duration)
+            // While the resume pill is offered, don't overwrite the saved position.
+            if (resumeOffer == null) saveProgress(time.toInt(), duration)
             delay(500)
         }
     }
@@ -418,6 +423,27 @@ fun PlayerScreen(
                     onScrub = { f -> scrubbing = true; time = f * duration }, onScrubEnd = { exo.seekTo((time * 1000).toLong()); scrubbing = false; poke() },
                     onToggle = { togglePlay() }, onSheet = { sheet = it }, onLock = { locked = true; showUI = false },
                 )
+            }
+        }
+
+        // Non-blocking resume pill (small, transparent). Plays from start; tap to jump.
+        resumeOffer?.let { pos ->
+            Row(
+                Modifier.align(Alignment.TopStart).padding(start = 12.dp, top = 64.dp)
+                    .clip(RoundedCornerShape(20.dp)).background(Color.Black.copy(alpha = 0.45f)),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(
+                    Modifier.clip(RoundedCornerShape(20.dp)).pointerInput(pos) { detectTapGestures { exo.seekTo(pos * 1000L); resumeOffer = null } }
+                        .padding(start = 12.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Icon(Icons.Outlined.Replay10, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                    Text("Resume from ${fmtDur(pos)}", style = MaterialTheme.typography.labelMedium, color = Color.White)
+                }
+                IconButton(onClick = { resumeOffer = null }, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Outlined.Close, "Dismiss", tint = Color.White.copy(alpha = 0.85f), modifier = Modifier.size(16.dp))
+                }
             }
         }
     }

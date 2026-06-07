@@ -38,7 +38,6 @@ data class PlaybackRequest(
     val path: List<String>,
     val file: String,
     val durSec: Int,
-    val resumeImmediately: Boolean = false,
     /** Cross-folder playlist (e.g. a whole series). Null = use the file's folder siblings. */
     val playlist: List<EpisodeRef>? = null,
 )
@@ -85,23 +84,20 @@ fun PlayerHost(request: PlaybackRequest, settings: AppSettings, onClose: () -> U
     val nextEp = playlist.getOrNull(idx + 1)
     val prevEp = playlist.getOrNull(idx - 1)
 
-    val key = progressKey(request.serverId, curPath, file)
-    val saved = AppRepo.getProgress(key)
-
+    // Decide start position + whether to offer a non-blocking "Resume from …" pill.
     val decision = remember(file, curKeyPath, restartToken) {
         val pos = AppRepo.getProgress(progressKey(request.serverId, curPath, file))
-        val eligible = pos > 30 && durSec > 0 && pos < durSec - 90
+        // Eligible = watched a bit but not finished (>=92% = complete → no prompt).
+        val eligible = pos > 30 && durSec > 0 && pos.toFloat() / durSec < 0.92f
         val isFirst = file == request.file && curPath == request.path && restartToken == 0
         when {
-            !isFirst -> 0 to false
-            request.resumeImmediately && eligible -> pos to false
-            settings.resumeBehavior == ResumeBehavior.ASK && eligible -> 0 to true
-            eligible -> pos to false
-            else -> 0 to false
+            !isFirst || !eligible -> 0 to null                              // from start, no prompt
+            settings.resumeBehavior == ResumeBehavior.ASK -> 0 to pos       // play from start + offer resume
+            else -> pos to null                                             // RESUME setting → auto-resume
         }
     }
-    var startAt by remember(file, curKeyPath, restartToken) { mutableIntStateOf(decision.first) }
-    var asking by remember(file, curKeyPath, restartToken) { mutableStateOf(decision.second) }
+    val startAt = decision.first
+    val resumePromptSec = decision.second
 
     val np = prettyName(file)
     val streamUrl = MediaRepo.fileUrl(request.serverId, curPath, file)
@@ -114,12 +110,6 @@ fun PlayerHost(request: PlaybackRequest, settings: AppSettings, onClose: () -> U
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         when {
-            asking -> ResumeDialog(
-                posSec = saved, durSec = durSec,
-                onResume = { startAt = saved; asking = false },
-                onStartOver = { startAt = 0; asking = false },
-                onDismiss = onClose,
-            )
             ended -> EndPanel(
                 finishedFile = file, nextFile = nextEp?.file, autoPlay = settings.autoPlayNext,
                 onNext = { goTo(nextEp) }, onRestart = { ended = false; restartToken++ }, onBack = onClose, onClose = onClose,
@@ -131,6 +121,7 @@ fun PlayerHost(request: PlaybackRequest, settings: AppSettings, onClose: () -> U
                     streamUrl = streamUrl,
                     subtitleUrl = subtitleUrl,
                     startAt = startAt,
+                    resumeFromSec = resumePromptSec,
                     durSec = durSec,
                     layout = settings.playerLayout,
                     subtitlesDefault = settings.subtitlesDefault,

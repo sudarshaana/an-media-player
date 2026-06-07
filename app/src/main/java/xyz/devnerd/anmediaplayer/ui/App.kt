@@ -104,7 +104,7 @@ fun App(
                     onManageServers = { navController.switchTab(TopDest.SERVERS.route) },
                     onOpenBrowse = { server, path -> navController.navigate(browseRoute(server, path)) },
                     onOpenServer = { navController.navigate(browseRoute(it, emptyList())) },
-                    onPlay = { item -> playback = PlaybackRequest(item.server, item.path, item.file, item.durSec, resumeImmediately = true) },
+                    onPlay = { item -> playback = PlaybackRequest(item.server, item.path, item.file, item.durSec) },
                 )
             }
             composable(TopDest.SERVERS.route) {
