@@ -56,6 +56,9 @@ fun App(
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentDest = backStackEntry?.destination
     val onTopDest = TopDest.entries.any { d -> currentDest?.hierarchy?.any { it.route == d.route } == true }
+    val onBrowse = currentDest?.route?.startsWith("browse") == true
+    var navVisible by remember { mutableStateOf(true) }
+    androidx.compose.runtime.LaunchedEffect(currentDest?.route) { navVisible = true }
 
     val appContext = androidx.compose.ui.platform.LocalContext.current
     var playback by remember { mutableStateOf<PlaybackRequest?>(null) }
@@ -74,7 +77,7 @@ fun App(
         bottomBar = {
             // Hide the bottom bar for full-screen routes (Connect, Browser, later Player).
             AnimatedVisibility(
-                visible = onTopDest,
+                visible = (onTopDest || onBrowse) && navVisible,
                 enter = slideInVertically { it },
                 exit = slideOutVertically { it },
             ) {
@@ -153,6 +156,9 @@ fun App(
                     path = path,
                     navPattern = settings.navPattern,
                     initialView = settings.browseView.key,
+                    initialSortKey = settings.sortKey,
+                    initialSortAsc = settings.sortAsc,
+                    onSetSort = settingsActions.onSetSort,
                     isWatched = { key, dur -> AppRepo.isWatched(key, dur) },
                     getProgress = { key -> AppRepo.getProgress(key) },
                     isBookmarked = { s, p -> AppRepo.isBookmarked(s, p) },
@@ -166,6 +172,7 @@ fun App(
                         android.widget.Toast.makeText(appContext, "Added to downloads", android.widget.Toast.LENGTH_SHORT).show()
                     },
                     onSetView = { g -> settingsActions.onBrowseView(if (g) BrowseView.GRID else BrowseView.LIST) },
+                    onNavVisible = { navVisible = it },
                     onPlayEpisode = { pl, start -> playback = PlaybackRequest(server, start.path, start.file, start.durSec, playlist = pl) },
                     onUp = { navController.popBackStack() },
                 )

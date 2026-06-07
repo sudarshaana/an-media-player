@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.InsertDriveFile
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Image
@@ -152,6 +153,7 @@ fun BrowseListRow(
     onClick: () -> Unit,
     onMenu: () -> Unit,
     onLongClick: (() -> Unit)? = null,
+    pinned: Boolean = false,
 ) {
     Row(
         Modifier
@@ -188,6 +190,7 @@ fun BrowseListRow(
             }
         }
         if (entry.isDir) {
+            if (pinned) Icon(Icons.Filled.PushPin, "Pinned", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 4.dp).size(16.dp))
             Icon(Icons.Outlined.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp).size(20.dp))
         } else {
             IconButton(onClick = onMenu, modifier = Modifier.size(36.dp)) {
@@ -211,23 +214,41 @@ fun BrowseGridCard(
     imageUrl: String?,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
+    onMenu: (() -> Unit)? = null,
+    pinned: Boolean = false,
 ) {
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).combinedClickable(onClick = onClick, onLongClick = onLongClick)) {
-        Poster(
-            seed = posterSeed,
-            icon = icon,
-            label = label,
-            watched = watched,
-            progress = if (pct > 1f && pct < 96f) pct.toInt() else null,
-            badge = res,
-            imageUrl = imageUrl,
-        )
+    // No clip on the Column — it would crop the descenders of the caption below.
+    Column(Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = onLongClick)) {
+        Box {
+            Poster(
+                seed = posterSeed,
+                icon = icon,
+                label = label,
+                watched = watched,
+                progress = if (pct > 1f && pct < 96f) pct.toInt() else null,
+                badge = res,
+                imageUrl = imageUrl,
+            )
+            if (pinned) {
+                Box(Modifier.align(Alignment.TopStart).padding(8.dp).size(22.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.5f)), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Filled.PushPin, "Pinned", tint = Color.White, modifier = Modifier.size(13.dp))
+                }
+            }
+            if (onMenu != null && !entry.isDir) {
+                Box(
+                    Modifier.align(Alignment.TopEnd).padding(6.dp).size(28.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.5f)).clickable(onClick = onMenu),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Outlined.MoreVert, "More", tint = Color.White, modifier = Modifier.size(18.dp))
+                }
+            }
+        }
         Text(
             sub,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1, overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 8.dp, start = 2.dp, end = 2.dp),
+            modifier = Modifier.padding(top = 8.dp, start = 2.dp, end = 2.dp, bottom = 2.dp),
         )
     }
 }

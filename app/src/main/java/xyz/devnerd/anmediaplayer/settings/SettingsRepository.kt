@@ -78,6 +78,9 @@ data class AppSettings(
     val appLock: Boolean = false,
     /** SAF tree URI for downloads. Null = app private storage. */
     val downloadDir: String? = null,
+    /** Last-used directory sort. Default: newest first. */
+    val sortKey: String = "date",
+    val sortAsc: Boolean = false,
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -97,6 +100,8 @@ class SettingsRepository(private val context: Context) {
         val WIFI_ONLY = booleanPreferencesKey("wifi_only")
         val APP_LOCK = booleanPreferencesKey("app_lock")
         val DOWNLOAD_DIR = stringPreferencesKey("download_dir")
+        val SORT_KEY = stringPreferencesKey("sort_key")
+        val SORT_ASC = booleanPreferencesKey("sort_asc")
     }
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { prefs ->
@@ -113,6 +118,8 @@ class SettingsRepository(private val context: Context) {
             wifiOnly = prefs[Keys.WIFI_ONLY] ?: true,
             appLock = prefs[Keys.APP_LOCK] ?: false,
             downloadDir = prefs[Keys.DOWNLOAD_DIR],
+            sortKey = prefs[Keys.SORT_KEY] ?: "date",
+            sortAsc = prefs[Keys.SORT_ASC] ?: false,
         )
     }
 
@@ -162,5 +169,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setDownloadDir(uri: String?) {
         context.dataStore.edit { if (uri == null) it.remove(Keys.DOWNLOAD_DIR) else it[Keys.DOWNLOAD_DIR] = uri }
+    }
+
+    suspend fun setSort(key: String, asc: Boolean) {
+        context.dataStore.edit { it[Keys.SORT_KEY] = key; it[Keys.SORT_ASC] = asc }
     }
 }

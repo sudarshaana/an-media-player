@@ -137,6 +137,7 @@ object AppRepo {
     fun continueItems(): List<ContinueItem> = progress.values
         .filter { it.dur > 0 && it.pos > 5 && it.pos.toFloat() / it.dur < 0.96f }
         .sortedByDescending { it.updated }
+        .take(50)
         .map {
             val np = prettyName(it.file)
             ContinueItem(it.server, it.path, it.file, it.pos, it.dur, np.primary, np.secondary, if (np.ep != null) "episode" else "movie", it.cover)

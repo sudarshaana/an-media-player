@@ -36,6 +36,7 @@ class MainActivity : AppCompatActivity() {
                         onWifiOnly = vm::setWifiOnly,
                         onAppLock = vm::setAppLock,
                         onDownloadDir = vm::setDownloadDir,
+                        onSetSort = vm::setSort,
                     ),
                 )
             }

@@ -62,6 +62,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -101,6 +102,9 @@ fun BrowserScreen(
     path: List<String>,
     navPattern: NavPattern,
     initialView: String, // "list" | "grid"
+    initialSortKey: String = "date",
+    initialSortAsc: Boolean = false,
+    onSetSort: (String, Boolean) -> Unit = { _, _ -> },
     isWatched: (String, Int?) -> Boolean,
     getProgress: (String) -> Int,
     isBookmarked: (String, List<String>) -> Boolean,
@@ -109,6 +113,7 @@ fun BrowserScreen(
     onPlay: (String, List<String>, String, Int?) -> Unit,
     onDownload: (Entry) -> Unit = {},
     onSetView: (Boolean) -> Unit = {},
+    onNavVisible: (Boolean) -> Unit = {},
     onPlayEpisode: (List<xyz.devnerd.anmediaplayer.data.EpisodeRef>, xyz.devnerd.anmediaplayer.data.EpisodeRef) -> Unit = { _, _ -> },
     onUp: () -> Unit,
     modifier: Modifier = Modifier,
@@ -122,8 +127,8 @@ fun BrowserScreen(
     var loaded by remember(pathKey) { mutableStateOf<List<Entry>>(emptyList()) }
     var searching by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
-    var sortBy by remember { mutableStateOf(SortBy.NAME) }
-    var asc by remember { mutableStateOf(true) }
+    var sortBy by remember { mutableStateOf(SortBy.entries.firstOrNull { it.name.equals(initialSortKey, true) } ?: SortBy.DATE) }
+    var asc by remember { mutableStateOf(initialSortAsc) }
     var sortOpen by remember { mutableStateOf(false) }
     var menuFor by remember { mutableStateOf<Entry?>(null) }
     var imageViewer by remember { mutableStateOf<String?>(null) }
@@ -195,8 +200,17 @@ fun BrowserScreen(
         }
     }
 
+    val navCb by androidx.compose.runtime.rememberUpdatedState(onNavVisible)
+    val navScroll = remember {
+        object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
+            override fun onPreScroll(available: androidx.compose.ui.geometry.Offset, source: androidx.compose.ui.input.nestedscroll.NestedScrollSource): androidx.compose.ui.geometry.Offset {
+                if (available.y < -6f) navCb(false) else if (available.y > 6f) navCb(true)
+                return androidx.compose.ui.geometry.Offset.Zero
+            }
+        }
+    }
     Scaffold(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize().nestedScroll(navScroll),
         topBar = {
             if (searching) {
                 SearchBar(
@@ -217,20 +231,23 @@ fun BrowserScreen(
                         }
                     },
                     actions = {
-                        IconButton(onClick = { searching = true }) { Icon(Icons.Outlined.Search, "Search") }
+                        val actionBtn = Modifier.size(40.dp)
+                        val actionIcon = Modifier.size(19.dp)
+                        IconButton(onClick = { searching = true }, modifier = actionBtn) { Icon(Icons.Outlined.Search, "Search", modifier = actionIcon) }
                         if (path.isNotEmpty()) {
-                            IconButton(onClick = { onToggleBookmark(serverId, path) }) {
+                            IconButton(onClick = { onToggleBookmark(serverId, path) }, modifier = actionBtn) {
                                 Icon(
                                     if (bookmarked) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
                                     "Bookmark folder",
                                     tint = if (bookmarked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = actionIcon,
                                 )
                             }
                         }
-                        IconButton(onClick = { grid = !grid; onSetView(grid) }) {
-                            Icon(if (grid) Icons.AutoMirrored.Outlined.ListIcon else Icons.Outlined.GridView, "Toggle view")
+                        IconButton(onClick = { grid = !grid; onSetView(grid) }, modifier = actionBtn) {
+                            Icon(if (grid) Icons.AutoMirrored.Outlined.ListIcon else Icons.Outlined.GridView, "Toggle view", modifier = actionIcon)
                         }
-                        IconButton(onClick = { sortOpen = true }) { Icon(Icons.AutoMirrored.Outlined.Sort, "Sort") }
+                        IconButton(onClick = { sortOpen = true }, modifier = actionBtn) { Icon(Icons.AutoMirrored.Outlined.Sort, "Sort", modifier = actionIcon) }
                     },
                 )
             }
@@ -284,6 +301,7 @@ fun BrowserScreen(
                             onClick = { open(e) },
                             onMenu = { menuFor = e },
                             onLongClick = if (e.isDir) ({ pinFolder(e) }) else null,
+                            pinned = e.isDir && AppRepo.isShortcut(serverId, path + e.name),
                         )
                     }
                 }
@@ -322,6 +340,8 @@ fun BrowserScreen(
                             imageUrl = thumb,
                             onClick = { open(e) },
                             onLongClick = if (e.isDir) ({ pinFolder(e) }) else null,
+                            onMenu = if (!e.isDir) ({ menuFor = e }) else null,
+                            pinned = e.isDir && AppRepo.isShortcut(serverId, path + e.name),
                         )
                     }
                 }
@@ -337,7 +357,8 @@ fun BrowserScreen(
                 val on = s == sortBy
                 Row(
                     Modifier.fillMaxWidth().clickable {
-                        if (on) asc = !asc else { sortBy = s; asc = true }
+                        if (on) asc = !asc else { sortBy = s; asc = (s == SortBy.NAME || s == SortBy.TYPE) }
+                        onSetSort(sortBy.name.lowercase(), asc)
                     }.padding(horizontal = 24.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(16.dp),

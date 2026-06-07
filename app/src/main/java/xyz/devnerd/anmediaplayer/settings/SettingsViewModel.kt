@@ -31,4 +31,5 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     fun setWifiOnly(on: Boolean) = viewModelScope.launch { repo.setWifiOnly(on) }
     fun setAppLock(on: Boolean) = viewModelScope.launch { repo.setAppLock(on) }
     fun setDownloadDir(uri: String?) = viewModelScope.launch { repo.setDownloadDir(uri) }
+    fun setSort(key: String, asc: Boolean) = viewModelScope.launch { repo.setSort(key, asc) }
 }

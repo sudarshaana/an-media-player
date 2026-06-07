@@ -76,6 +76,7 @@ data class SettingsActions(
     val onWifiOnly: (Boolean) -> Unit = {},
     val onAppLock: (Boolean) -> Unit = {},
     val onDownloadDir: (String?) -> Unit = {},
+    val onSetSort: (String, Boolean) -> Unit = { _, _ -> },
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
