@@ -46,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import xyz.devnerd.anmediaplayer.data.AppRepo
@@ -97,7 +98,8 @@ fun HomeScreen(
                 items(bookmarks.size) { i ->
                     val b = bookmarks[i]
                     val name = b.path.lastOrNull() ?: AppRepo.serverById(b.server)?.name ?: "Folder"
-                    BookmarkCard(name = name, onClick = { onOpenBrowse(b.server, b.path) })
+                    val thumb = xyz.devnerd.anmediaplayer.ui.components.rememberFolderThumb(b.server, b.path)
+                    BookmarkCard(name = name, imageUrl = thumb, onClick = { onOpenBrowse(b.server, b.path) })
                 }
             }
         }
@@ -192,26 +194,37 @@ private fun ContinueCard(item: ContinueItem, pct: Int, onClick: () -> Unit) {
 }
 
 @Composable
-private fun BookmarkCard(name: String, onClick: () -> Unit) {
+private fun BookmarkCard(name: String, imageUrl: String?, onClick: () -> Unit) {
     Box(
         Modifier
-            .width(230.dp)
-            .aspectRatio(16f / 9f)
+            .width(140.dp)
+            .aspectRatio(2f / 3f)
             .clip(RoundedCornerShape(14.dp))
             .background(coverBrush(name))
             .clickable(onClick = onClick),
     ) {
+        if (imageUrl != null) {
+            coil3.compose.AsyncImage(
+                model = imageUrl,
+                contentDescription = null,
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
         Box(
             Modifier.fillMaxSize().background(
-                Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.05f), Color.Black.copy(alpha = 0.55f))),
+                Brush.verticalGradient(0f to Color.Transparent, 0.45f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.9f)),
             ),
         )
-        Icon(Icons.Outlined.Folder, null, tint = Color.White.copy(alpha = 0.85f), modifier = Modifier.align(Alignment.TopStart).padding(10.dp).size(22.dp))
-        Icon(Icons.Filled.Bookmark, null, tint = Color.White, modifier = Modifier.align(Alignment.TopEnd).padding(10.dp).size(18.dp))
-        Column(Modifier.align(Alignment.BottomStart).padding(start = 12.dp, end = 12.dp, bottom = 10.dp)) {
-            Text(cleanTitle(name), style = MaterialTheme.typography.titleSmall, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text("Folder", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.8f))
-        }
+        Icon(Icons.Filled.Bookmark, null, tint = Color.White, modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).size(18.dp))
+        Text(
+            cleanTitle(name),
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.W700),
+            color = Color.White,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.align(Alignment.BottomStart).padding(start = 10.dp, end = 10.dp, bottom = 10.dp),
+        )
     }
 }
 
