@@ -100,7 +100,7 @@ fun HomeScreen(
                     val b = bookmarks[i]
                     val name = b.path.lastOrNull() ?: AppRepo.serverById(b.server)?.name ?: "Folder"
                     val thumb = xyz.devnerd.anmediaplayer.ui.components.rememberFolderThumb(b.server, b.path)
-                    BookmarkCard(name = name, imageUrl = thumb, onClick = { onOpenBrowse(b.server, b.path) })
+                    BookmarkCard(name = name, imageModel = thumb ?: xyz.devnerd.anmediaplayer.ui.components.categoryCover(name), onClick = { onOpenBrowse(b.server, b.path) })
                 }
             }
         }
@@ -195,7 +195,7 @@ private fun ContinueCard(item: ContinueItem, pct: Int, onClick: () -> Unit) {
 }
 
 @Composable
-private fun BookmarkCard(name: String, imageUrl: String?, onClick: () -> Unit) {
+private fun BookmarkCard(name: String, imageModel: Any?, onClick: () -> Unit) {
     Box(
         Modifier
             .width(140.dp)
@@ -205,9 +205,9 @@ private fun BookmarkCard(name: String, imageUrl: String?, onClick: () -> Unit) {
             .background(coverBrush(name))
             .clickable(onClick = onClick),
     ) {
-        if (imageUrl != null) {
+        if (imageModel != null) {
             coil3.compose.AsyncImage(
-                model = imageUrl,
+                model = imageModel,
                 contentDescription = null,
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),

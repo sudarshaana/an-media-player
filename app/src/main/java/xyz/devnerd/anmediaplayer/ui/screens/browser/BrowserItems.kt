@@ -105,14 +105,14 @@ private fun tileColors(type: EntryType): TileColors = with(MaterialTheme.colorSc
 
 /** 52dp leading tile: real thumbnail if available, else gradient art / flat tone. */
 @Composable
-private fun LeadingTile(entry: Entry, artSeed: String?, thumbUrl: String?, watched: Boolean) {
+private fun LeadingTile(entry: Entry, artSeed: String?, thumbModel: Any?, watched: Boolean) {
     val colors = tileColors(entry.type)
     val showArt = artSeed != null
     Box(Modifier.size(52.dp).clip(RoundedCornerShape(13.dp)).background(colors.bg), contentAlignment = Alignment.Center) {
         if (showArt) Box(Modifier.size(52.dp).background(coverBrush(artSeed!!)))
-        if (thumbUrl != null) {
+        if (thumbModel != null) {
             coil3.compose.AsyncImage(
-                model = thumbUrl,
+                model = thumbModel,
                 contentDescription = null,
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                 modifier = Modifier.size(52.dp),
@@ -121,7 +121,7 @@ private fun LeadingTile(entry: Entry, artSeed: String?, thumbUrl: String?, watch
         Icon(
             imageVector = entryIcon(entry.type, isImageFolder = showArt && entry.isDir),
             contentDescription = null,
-            tint = if (showArt || thumbUrl != null) Color.White.copy(alpha = if (thumbUrl != null) 0f else 1f) else colors.fg,
+            tint = if (showArt || thumbModel != null) Color.White.copy(alpha = if (thumbModel != null) 0f else 1f) else colors.fg,
             modifier = Modifier.size(24.dp),
         )
         if (watched) {
@@ -147,7 +147,7 @@ fun BrowseListRow(
     entry: Entry,
     meta: String,
     artSeed: String?,
-    thumbUrl: String?,
+    thumbModel: Any?,
     watched: Boolean,
     pct: Float,
     res: String?,
@@ -165,7 +165,7 @@ fun BrowseListRow(
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        LeadingTile(entry, artSeed, thumbUrl, watched)
+        LeadingTile(entry, artSeed, thumbModel, watched)
         Column(Modifier.weight(1f).padding(start = 14.dp)) {
             Text(
                 if (entry.isDir) cleanTitle(entry.name) else entry.name,
@@ -211,7 +211,7 @@ fun BrowseGridCard(
     chips: List<String>,
     watched: Boolean,
     pct: Float,
-    imageUrl: String?,
+    imageModel: Any?,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
     onMenu: (() -> Unit)? = null,
@@ -226,9 +226,9 @@ fun BrowseGridCard(
             .background(coverBrush(posterSeed))
             .combinedClickable(onClick = onClick, onLongClick = onLongClick),
     ) {
-        if (imageUrl != null) {
+        if (imageModel != null) {
             coil3.compose.AsyncImage(
-                model = imageUrl,
+                model = imageModel,
                 contentDescription = null,
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
