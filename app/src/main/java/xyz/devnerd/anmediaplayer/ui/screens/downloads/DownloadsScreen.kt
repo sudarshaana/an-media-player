@@ -1,9 +1,11 @@
 package xyz.devnerd.anmediaplayer.ui.screens.downloads
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -20,8 +22,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.PriorityHigh
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Movie
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.ErrorOutline
@@ -155,10 +160,30 @@ fun DownloadsScreen(
     }
 }
 
+private val GreenMark = Color(0xFF2E9E4F)
+private val RedMark = Color(0xFFD7263D)
+
 @Composable
-private fun Thumb(file: String, done: Boolean) {
+private fun Thumb(file: String, state: DownloadState) {
     Box(Modifier.width(56.dp).height(35.dp).clip(RoundedCornerShape(10.dp)).background(coverBrush(file)), contentAlignment = Alignment.Center) {
-        Icon(if (done) Icons.Filled.PlayArrow else Icons.Outlined.Download, null, tint = Color.White, modifier = Modifier.size(20.dp))
+        Icon(Icons.Outlined.Movie, null, tint = Color.White.copy(alpha = 0.92f), modifier = Modifier.size(20.dp))
+        // Corner status mark: green when downloaded, red when failed.
+        when (state) {
+            DownloadState.DONE -> StatusMark(GreenMark, Icons.Filled.Check)
+            DownloadState.FAILED -> StatusMark(RedMark, Icons.Filled.PriorityHigh)
+            else -> {}
+        }
+    }
+}
+
+@Composable
+private fun BoxScope.StatusMark(color: Color, icon: androidx.compose.ui.graphics.vector.ImageVector) {
+    Box(
+        Modifier.align(Alignment.BottomEnd).padding(2.dp).size(15.dp).clip(CircleShape)
+            .background(color).border(1.5.dp, Color.White, CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(icon, null, tint = Color.White, modifier = Modifier.size(9.dp))
     }
 }
 
@@ -169,13 +194,13 @@ private fun DownloadRow(d: Download, onPlay: () -> Unit, onPause: () -> Unit, on
         Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).then(if (playable) Modifier.clickable(onClick = onPlay) else Modifier).padding(horizontal = 8.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Thumb(d.file, done = d.state == DownloadState.DONE)
+        Thumb(d.file, d.state)
         Column(Modifier.weight(1f)) {
             Text(d.title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
             val p = d.progress ?: 0
             when (d.state) {
                 DownloadState.DONE -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 2.dp)) {
-                    Icon(Icons.Outlined.CheckCircle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(13.dp))
+                    Icon(Icons.Outlined.CheckCircle, null, tint = GreenMark, modifier = Modifier.size(13.dp))
                     Text("${fmtSize(d.size)} · ${d.whenLabel ?: "Saved"}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 DownloadState.FAILED -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 2.dp)) {

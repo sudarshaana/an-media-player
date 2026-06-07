@@ -111,6 +111,17 @@ fun PlayerHost(request: PlaybackRequest, settings: AppSettings, onClose: () -> U
         durSec = ep.durSec; ended = false; restartToken = 0; curPath = ep.path; file = ep.file
     }
 
+    // Download the current file — only when streaming from a server (not already offline).
+    val context = LocalContext.current
+    val downloadAction: (() -> Unit)? = if (request.directUrl == null) ({
+        val size = loaded.firstOrNull { it.name == file }?.size ?: 0
+        xyz.devnerd.anmediaplayer.data.DownloadsStore.enqueue(
+            context, request.serverId, curPath, file, np.primary, np.secondary.ifBlank { file },
+            size, durSec, MediaRepo.fileUrl(request.serverId, curPath, file), settings.wifiOnly, settings.downloadDir,
+        )
+        android.widget.Toast.makeText(context, "Added to downloads", android.widget.Toast.LENGTH_SHORT).show()
+    }) else null
+
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         when {
             ended -> EndPanel(
@@ -138,6 +149,7 @@ fun PlayerHost(request: PlaybackRequest, settings: AppSettings, onClose: () -> U
                     onNext = { goTo(nextEp) },
                     onClose = onClose,
                     onEnded = { ended = true },
+                    onDownload = downloadAction,
                     saveProgress = { pos, dur -> AppRepo.saveProgress(request.serverId, curPath, file, pos, dur, System.currentTimeMillis(), coverUrl) },
                 )
             }

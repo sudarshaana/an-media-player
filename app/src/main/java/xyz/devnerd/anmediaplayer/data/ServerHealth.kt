@@ -35,4 +35,7 @@ object ServerHealth {
     suspend fun checkAll(servers: List<Server>) {
         servers.forEach { check(it) }
     }
+
+    /** Confirmed offline (not merely unchecked / still checking). */
+    fun isOffline(serverId: String): Boolean = status[serverId] == ServerStatus.OFFLINE
 }

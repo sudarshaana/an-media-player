@@ -58,7 +58,6 @@
     "urls": [
       "http://khulnaflix.net",
       "http://103.153.175.254/NAS1",
-      "http://bokasoka.net",
       "http://bokasoka.net/NAS1",
       "http://file.khulnaflix.net"
     ]
@@ -192,7 +191,6 @@
   {
     "name": "DESHNET BROADBAND FTP SERVER",
     "urls": [
-      "http://103.152.18.18",
       "http://103.152.18.18/Data"
     ]
   },
@@ -200,7 +198,7 @@
     "name": "INSPIRE BROADBAND (IHUB) FTP SERVER",
     "urls": [
       "http://ihub.live",
-      "http://sg-cdn.ihub.live:8787/download/games"
+      "http://sg-cdn.ihub.live:8787/download"
     ]
   },
   {

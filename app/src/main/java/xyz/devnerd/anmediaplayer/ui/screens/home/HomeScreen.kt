@@ -28,6 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Lock
@@ -68,9 +69,14 @@ fun HomeScreen(
     onOpenConnect: () -> Unit = {},
     onManageServers: () -> Unit = {},
 ) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
     val servers: List<Server> = AppRepo.servers
     val cont = AppRepo.continueItems()
         .map { it to ((it.posSec.toFloat() / it.durSec) * 100).toInt() }
+    fun offlineToast(serverId: String) {
+        val n = AppRepo.serverById(serverId)?.name ?: "Server"
+        android.widget.Toast.makeText(ctx, "$n is offline", android.widget.Toast.LENGTH_SHORT).show()
+    }
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -88,7 +94,8 @@ fun HomeScreen(
             LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(cont.size) { i ->
                     val (item, pct) = cont[i]
-                    ContinueCard(item, pct, onClick = { onPlay(item) })
+                    val offline = xyz.devnerd.anmediaplayer.data.ServerHealth.isOffline(item.server)
+                    ContinueCard(item, pct, offline = offline, onClick = { if (offline) offlineToast(item.server) else onPlay(item) })
                 }
             }
         }
@@ -100,7 +107,8 @@ fun HomeScreen(
                     val b = bookmarks[i]
                     val name = b.path.lastOrNull() ?: AppRepo.serverById(b.server)?.name ?: "Folder"
                     val thumb = xyz.devnerd.anmediaplayer.ui.components.rememberFolderThumb(b.server, b.path)
-                    BookmarkCard(name = name, imageModel = thumb ?: xyz.devnerd.anmediaplayer.ui.components.categoryCover(name), onClick = { onOpenBrowse(b.server, b.path) })
+                    val offline = xyz.devnerd.anmediaplayer.data.ServerHealth.isOffline(b.server)
+                    BookmarkCard(name = name, imageModel = thumb ?: xyz.devnerd.anmediaplayer.ui.components.categoryCover(name), offline = offline, onClick = { if (offline) offlineToast(b.server) else onOpenBrowse(b.server, b.path) })
                 }
             }
         }
@@ -148,7 +156,7 @@ private fun SectionHead(title: String, action: String? = null, onAction: () -> U
 }
 
 @Composable
-private fun ContinueCard(item: ContinueItem, pct: Int, onClick: () -> Unit) {
+private fun ContinueCard(item: ContinueItem, pct: Int, offline: Boolean, onClick: () -> Unit) {
     val minsLeft = ((item.durSec - item.posSec) / 60).coerceAtLeast(0)
     Column(Modifier.width(270.dp).focusHighlight(RoundedCornerShape(16.dp)).clip(RoundedCornerShape(16.dp)).clickable(onClick = onClick)) {
         Box(
@@ -171,11 +179,16 @@ private fun ContinueCard(item: ContinueItem, pct: Int, onClick: () -> Unit) {
                     Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.1f), Color.Black.copy(alpha = 0.5f))),
                 ),
             )
-            Box(
-                Modifier.align(Alignment.Center).size(52.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.45f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(Icons.Filled.PlayArrow, "Play", tint = Color.White, modifier = Modifier.size(26.dp))
+            if (offline) {
+                Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)))
+                OfflinePill(Modifier.align(Alignment.Center))
+            } else {
+                Box(
+                    Modifier.align(Alignment.Center).size(52.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.45f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Filled.PlayArrow, "Play", tint = Color.White, modifier = Modifier.size(26.dp))
+                }
             }
             Box(
                 Modifier.align(Alignment.TopEnd).padding(10.dp).clip(RoundedCornerShape(6.dp))
@@ -195,7 +208,7 @@ private fun ContinueCard(item: ContinueItem, pct: Int, onClick: () -> Unit) {
 }
 
 @Composable
-private fun BookmarkCard(name: String, imageModel: Any?, onClick: () -> Unit) {
+private fun BookmarkCard(name: String, imageModel: Any?, offline: Boolean, onClick: () -> Unit) {
     Box(
         Modifier
             .width(140.dp)
@@ -218,6 +231,10 @@ private fun BookmarkCard(name: String, imageModel: Any?, onClick: () -> Unit) {
                 Brush.verticalGradient(0f to Color.Transparent, 0.45f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.9f)),
             ),
         )
+        if (offline) {
+            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)))
+            OfflinePill(Modifier.align(Alignment.Center))
+        }
         Icon(Icons.Filled.Bookmark, null, tint = Color.White, modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).size(18.dp))
         Text(
             cleanTitle(name),
@@ -252,6 +269,18 @@ private fun ServerRow(serverId: String, name: String, url: String, auth: Boolean
             xyz.devnerd.anmediaplayer.ui.components.ServerStatusBadge(xyz.devnerd.anmediaplayer.data.ServerHealth.status[serverId])
             Icon(Icons.Outlined.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
         }
+    }
+}
+
+@Composable
+private fun OfflinePill(modifier: Modifier = Modifier) {
+    Row(
+        modifier.clip(RoundedCornerShape(20.dp)).background(Color.Black.copy(alpha = 0.6f)).padding(horizontal = 10.dp, vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+    ) {
+        Icon(Icons.Outlined.CloudOff, null, tint = Color.White, modifier = Modifier.size(15.dp))
+        Text("Offline", style = MaterialTheme.typography.labelMedium, color = Color.White)
     }
 }
 

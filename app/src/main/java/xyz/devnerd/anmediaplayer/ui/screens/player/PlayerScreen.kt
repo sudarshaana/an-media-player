@@ -142,6 +142,7 @@ fun PlayerScreen(
     onNext: () -> Unit,
     onClose: () -> Unit,
     onEnded: () -> Unit,
+    onDownload: (() -> Unit)? = null,
     saveProgress: (Int, Int) -> Unit,
 ) {
     val context = LocalContext.current
@@ -553,6 +554,7 @@ fun PlayerScreen(
             onToggleRepeat = { repeatOne = !repeatOne; exo.repeatMode = if (repeatOne) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF },
             onLock = { locked = true; showUI = false; showMore = false },
             onResize = { sheet = PlayerSheet.RESIZE; showMore = false },
+            onDownload = onDownload?.let { dl -> { dl(); showMore = false } },
             onDismiss = { showMore = false },
         )
     }

@@ -22,6 +22,7 @@ import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.AspectRatio
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -60,6 +61,7 @@ fun MoreSheet(
     onToggleRepeat: () -> Unit,
     onLock: () -> Unit,
     onResize: () -> Unit,
+    onDownload: (() -> Unit)? = null,
     onDismiss: () -> Unit,
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -73,6 +75,7 @@ fun MoreSheet(
                 Text("Repeat", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
                 androidx.compose.material3.Switch(checked = repeatOne, onCheckedChange = { onToggleRepeat() })
             }
+            if (onDownload != null) MoreAction(Icons.Outlined.Download, "Download", onDownload)
             MoreAction(Icons.Outlined.Lock, "Lock screen", onLock)
             MoreAction(Icons.Outlined.AspectRatio, "Resize", onResize)
             androidx.compose.material3.HorizontalDivider(Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
