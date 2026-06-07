@@ -1,9 +1,8 @@
 # AnMediaPlayer — Project Guide
 
-Material 3 / Material You Android app for browsing remote media listings (HTTP
-index · h5ai · Apache/nginx autoindex · FTP/WebDAV) and playing video in an
-in-app player. Premium media-app feel (Plex / Jellyfin), dark-first with full
-light theme.
+Material 3 / Material You Android app. Browse remote media listings (HTTP
+index · h5ai · Apache/nginx autoindex · FTP/WebDAV), play video in-app. Premium
+media-app feel (Plex / Jellyfin), dark-first + full light theme.
 
 Package: `xyz.devnerd.anmediaplayer` · minSdk 24 · targetSdk 36 · Jetpack Compose
 (BOM 2026.02.01) · Kotlin 2.2.10 · AGP 9.2.1.
@@ -12,10 +11,10 @@ Package: `xyz.devnerd.anmediaplayer` · minSdk 24 · targetSdk 36 · Jetpack Com
 
 ## Design source (authoritative)
 
-Built from a Claude Design handoff bundle. The spec is **`UI Design & Flow.md`**
-(extracted to `/tmp/design_extract/ftp-player/`). Recreate the visual output
-pixel-perfectly; do **not** copy the prototype's JSX structure. Key prototype
-files for reference: `src/theme.jsx` (tokens), `src/screens-*.jsx`, `player.jsx`,
+From Claude Design handoff bundle. Spec = **`UI Design & Flow.md`**
+(extracted to `/tmp/design_extract/ftp-player/`). Recreate visual output
+pixel-perfect; do **not** copy prototype JSX structure. Key prototype
+files: `src/theme.jsx` (tokens), `src/screens-*.jsx`, `player.jsx`,
 `ui.jsx`, `data.jsx`.
 
 Read `UI Design & Flow.md` before any screen work.
@@ -26,9 +25,9 @@ Read `UI Design & Flow.md` before any screen work.
 
 | Topic | Decision |
 |---|---|
-| Data backend | **Fake in-memory data first** (mirrors prototype). Real HTTP-index/h5ai/Apache/nginx/FTP/WebDAV parsers + streaming come in Phase 7. |
+| Data backend | **Fake in-memory data first** (mirrors prototype). Real HTTP-index/h5ai/Apache/nginx/FTP/WebDAV parsers + streaming = Phase 7. |
 | Player engine | **Media3 (ExoPlayer)**. libVLC fallback deferred. |
-| Theme mode | **Light / Dark / Follow-system**, persisted. Dark is the default look. |
+| Theme mode | **Light / Dark / Follow-system**, persisted. Dark = default look. |
 | Color source | **Fixed M3 purple seed (`#6750A4`) + 5 swappable accents** (purple, green, amber, azure, crimson). No wallpaper dynamic color. |
 | Type family | **Manrope** (bundled variable font `res/font/manrope.ttf`, weights 400–800). |
 
@@ -36,14 +35,14 @@ Read `UI Design & Flow.md` before any screen work.
 
 ## Theme plan (planned up front)
 
-- Two full M3 tonal schemes — **dark** and **light** — from the design's token
+- Two full M3 tonal schemes — **dark** + **light** — from design token
   tables (`UI Design & Flow.md` §1.1, mirrors `theme.jsx` `M3_DARK` / `M3_LIGHT`).
-- **Accent** only re-maps the `primary` family (primary/onPrimary/primaryContainer/
-  onPrimaryContainer) per scheme; the rest of the scheme stays coherent.
+- **Accent** re-maps only `primary` family (primary/onPrimary/primaryContainer/
+  onPrimaryContainer) per scheme; rest stays coherent.
 - `ThemeMode` ∈ {SYSTEM, LIGHT, DARK}; `Accent` ∈ {PURPLE, GREEN, AMBER, AZURE, CRIMSON}.
 - Both persisted via DataStore (`SettingsRepository`), read at app root, two-way
   bound to Settings ▸ Appearance.
-- Edge-to-edge; status/nav bar icon contrast follows the resolved dark/light.
+- Edge-to-edge; status/nav bar icon contrast follows resolved dark/light.
 
 ---
 
@@ -62,32 +61,32 @@ xyz.devnerd.anmediaplayer
 ```
 
 Rule: **split code when files grow** — one screen per file/package, shared widgets
-in `ui/components`, no god files. Mirror the prototype's `screens-*` split.
+in `ui/components`, no god files. Mirror prototype `screens-*` split.
 
 ### Subtitles
-Two paths: **external** sibling `.srt`/`.vtt` (matched by stem, sideloaded as a Media3 `SubtitleConfiguration`) and **embedded** tracks inside the container (e.g. scene-release "ESub" mkv/mp4). Enabling subtitles sets `preferredTextLanguage("en")` + `setSelectUndeterminedTextLanguage(true)` and un-disables `TRACK_TYPE_TEXT` — required for ExoPlayer to actually select an embedded track (un-disabling alone is not enough). Verified live: Shawshank Redemption embedded ESub renders.
+Two paths: **external** sibling `.srt`/`.vtt` (matched by stem, sideloaded as Media3 `SubtitleConfiguration`) and **embedded** tracks inside container (e.g. scene-release "ESub" mkv/mp4). Enabling subtitles sets `preferredTextLanguage("en")` + `setSelectUndeterminedTextLanguage(true)` + un-disables `TRACK_TYPE_TEXT` — required for ExoPlayer to select embedded track (un-disabling alone not enough). Verified live: Shawshank Redemption embedded ESub renders.
 
 ### h5ai parsing (important)
-The **raw HTTP response** from h5ai is the fallback `<table>` (`td.fb-n` name anchor, `td.fb-d` date `yyyy-MM-dd HH:mm`, `td.fb-s` size like `1550541 KB`). The pretty `<li class="item">` list is built client-side by JS and is **not** in the response. `HttpMediaSource` parses, in order: `li.item` (if ever present) → **fallback table** (primary path for h5ai — gives real date+size) → generic autoindex anchors. Folder/file dates + media sizes come from the fallback table.
+**Raw HTTP response** from h5ai = fallback `<table>` (`td.fb-n` name anchor, `td.fb-d` date `yyyy-MM-dd HH:mm`, `td.fb-s` size like `1550541 KB`). Pretty `<li class="item">` list built client-side by JS, **not** in response. `HttpMediaSource` parses, in order: `li.item` (if present) → **fallback table** (primary path for h5ai — gives real date+size) → generic autoindex anchors. Folder/file dates + media sizes come from fallback table.
 
 ### Player playlist
-`PlayerHost` builds a playlist (`EpisodeRef`, cross-season for series via `buildSeriesPlaylist`, else folder video siblings) and passes labels + currentIndex to `PlayerScreen`; the top-chrome **Playlist** button opens `PlaylistSheet` listing all items (current highlighted, tap to switch). Shown only when >1 item.
+`PlayerHost` builds playlist (`EpisodeRef`, cross-season for series via `buildSeriesPlaylist`, else folder video siblings), passes labels + currentIndex to `PlayerScreen`; top-chrome **Playlist** button opens `PlaylistSheet` listing all items (current highlighted, tap to switch). Shown only when >1 item.
 
 ### Cover art
-No real posters. Each cover is a deterministic two-stop gradient seeded from the
+No real posters. Each cover = deterministic two-stop gradient seeded from
 file/folder name (`posterFor()` → `hsl(h 58% 44%) → hsl(h2 54% 26%)`). In Compose
-render as a `Brush.linearGradient`. Real `poster.jpg`/`folder.jpg` slot into the
+render as `Brush.linearGradient`. Real `poster.jpg`/`folder.jpg` slot into
 same frames later.
 
 ---
 
 ## Phase plan
 
-Implement one phase, **test on the wireless device, then stop** — the user will
-ask to proceed to the next phase. Update the Status column as phases land.
+Implement one phase, **test on wireless device, then stop** — user will
+ask to proceed to next phase. Update Status column as phases land.
 
 | #  | Phase | Scope                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Status |
-|----|---|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---|
+|----|---|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---|
 | 1  | Foundation | Theme system (dark+light tokens, 5 accents, Manrope type scale, shapes), `SettingsRepository` (DataStore) for theme mode + accent, app scaffold + bottom nav (Home/Servers/Downloads/Settings) + stub screens, Settings ▸ Appearance (theme + accent) working, edge-to-edge.                                                                                                                                                                                       | **done** (verified on device) |
 | 2  | Data + Home | Fake data layer (Entry/Server/Download/bookmarks/continue-watching), gradient cover art, Home shelves (Continue watching, Bookmarks, Recently added, Your servers).                                                                                                                                                                                                                                                                                                | **done** (verified on device) |
 | 3  | Servers + Connect | Servers list + context sheet, Connect full-screen modal (address field, live protocol/parser detection, auth toggle), saved-server reuse.                                                                                                                                                                                                                                                                                                                          | **done** (verified on device) |
@@ -97,17 +96,17 @@ ask to proceed to the next phase. Update the Status column as phases land.
 | 7  | Real backend (HTTP + streaming) | HTTP MediaSource (jsoup: h5ai `li.item` rows + generic autoindex via `absUrl` + descendant check; rawurlencode segment encoding for `( ) ! ' *`), `AppRepo` persistence (servers/bookmarks/progress via DataStore JSON), fake data removed, async Browser load, Media3/ExoPlayer streaming + external + embedded subtitle. **Fully verified live on 172.16.50.14/DHAKA-FLIX-14: connect → persist → list → navigate → stream 1080p mp4 + embedded ESub subtitle.** | **done** (verified on device) |
 | 8  | Visual polish | Real cover thumbnails (Coil + OkHttp; folder → inner image via `ThumbCache`/`firstImageUrl`, file → sibling poster, gradient fallback), pull-to-refresh (`refreshKey`), sort on real metadata. **Verified live: real posters in list + grid on DHAKA-FLIX.** Server-wide recursive search deferred (needs bounded depth/result-cap crawl to avoid hammering large trees).                                                                                          | **done** (verified on device) |
 | 9  | Browser UX | 2-line names; persisted grid/list view; image-file preview thumbnails + fullscreen pinch-zoom viewer; poster **hero header** in media folders (`MediaHero`); **TV-series view** (`detectSeasons`/`SeriesView`) with **cross-season playlist** in `PlayerHost` (variable path + `EpisodeRef`). **Verified live on DHAKA-FLIX.** | **done** (verified on device) |
-| 10 | Player depth | Real brightness/volume drag gestures, audio-track picker (real tracks), Picture-in-picture, tap-anywhere to show controls, double-tap edges to seek (YouTube-style), long-press to fast-forward, show current-folder playlist in player, back press hides the player and resumes from history. | todo |
+| 10 | Player depth | Real brightness/volume drag gestures, audio-track picker (real tracks), Picture-in-picture, tap-anywhere to show controls, double-tap edges to seek (YouTube-style), long-press to fast-forward, show current-folder playlist in player, back press hides player + resumes from history. | todo |
 | 11 | Offline downloads | WorkManager background download, Wi-Fi-only constraint, live progress, resumable, persisted offline library, play offline. | todo |
-| 12 | Auth + protocols | Basic-auth header on the ExoPlayer datasource (login-protected streaming), FTP/SFTP/WebDAV MediaSources. | todo |
+| 12 | Auth + protocols | Basic-auth header on ExoPlayer datasource (login-protected streaming), FTP/SFTP/WebDAV MediaSources. | todo |
 
 
 ---
 
 ## Testing — wireless ADB
 
-Device: **Samsung SM-S911B (Galaxy S23)**, connected wirelessly. Verify each phase
-on it before stopping.
+Device: **Samsung SM-S911B (Galaxy S23)**, wireless. Verify each phase
+before stopping.
 
 ```bash
 adb devices -l                                   # confirm device online
@@ -117,20 +116,20 @@ adb shell screencap -p /sdcard/s.png && adb pull /sdcard/s.png /tmp/s.png   # sc
 adb logcat -s AnMediaPlayer:* AndroidRuntime:E   # crashes / logs
 ```
 
-If the device drops off Wi-Fi: `adb connect <ip>:<port>` (user pairs it).
+Device drops off Wi-Fi: `adb connect <ip>:<port>` (user pairs it).
 
 **Device quirks (Galaxy S23):**
-- Wireless adb sometimes lists the device twice → "more than one device" errors. Pin the serial: `adb -s adb-RFCW90B94XP-iwvOnw._adb-tls-connect._tcp …`.
-- The Samsung dialer / People-edge steals foreground and eats automated taps. Before a tap sequence: `adb shell am force-stop com.samsung.android.dialer`, start the app with `am start -W`, and confirm `dumpsys window | grep mCurrentFocus` shows our activity.
+- Wireless adb sometimes lists device twice → "more than one device" errors. Pin serial: `adb -s adb-RFCW90B94XP-iwvOnw._adb-tls-connect._tcp …`.
+- Samsung dialer / People-edge steals foreground + eats automated taps. Before tap sequence: `adb shell am force-stop com.samsung.android.dialer`, start app with `am start -W`, confirm `dumpsys window | grep mCurrentFocus` shows our activity.
 - Lock portrait for stable tap coords: `adb shell settings put system accelerometer_rotation 0; … user_rotation 0`.
 
 ---
 
 ## Real-backend test target (Phase 7)
 
-`http://data.speed4you.net/` — a local **h5ai** server reachable on the local
-network. Use it to validate the h5ai JSON parser, listing, and streaming. Cleartext
-HTTP — needs a `networkSecurityConfig` / `usesCleartextTraffic` allowance for that host.
+`http://data.speed4you.net/` — local **h5ai** server on local
+network. Use to validate h5ai JSON parser, listing, streaming. Cleartext
+HTTP — needs `networkSecurityConfig` / `usesCleartextTraffic` allowance for that host.
 
 ---
 
@@ -140,5 +139,5 @@ HTTP — needs a `networkSecurityConfig` / `usesCleartextTraffic` allowance for 
   `shapes`. No ad-hoc colors; surfaces step through `surfaceContainer*` tones, not borders.
 - State layers on every tappable element (M3 ripple / 8% hover · 12% press).
 - Icons: UI icons outlined, media transport (play/pause/skip/replay-10) filled.
-- Ask the user (with options + a recommendation) before guessing on scope.
+- Ask user (with options + recommendation) before guessing on scope.
 - Confirm before destructive actions (`rm`, resets, overwrites).
