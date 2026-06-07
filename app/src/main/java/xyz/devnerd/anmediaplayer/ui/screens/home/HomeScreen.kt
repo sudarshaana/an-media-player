@@ -108,7 +108,9 @@ fun HomeScreen(
                     val name = b.path.lastOrNull() ?: AppRepo.serverById(b.server)?.name ?: "Folder"
                     val thumb = xyz.devnerd.anmediaplayer.ui.components.rememberFolderThumb(b.server, b.path)
                     val offline = xyz.devnerd.anmediaplayer.data.ServerHealth.isOffline(b.server)
-                    BookmarkCard(name = name, imageModel = thumb ?: xyz.devnerd.anmediaplayer.ui.components.categoryCover(name), offline = offline, onClick = { if (offline) offlineToast(b.server) else onOpenBrowse(b.server, b.path) })
+                    // Category cover only for top-level (server-root) folders, never deep paths.
+                    val catCover = if (b.path.size == 1) xyz.devnerd.anmediaplayer.ui.components.categoryCover(name) else null
+                    BookmarkCard(name = name, imageModel = thumb ?: catCover, offline = offline, onClick = { if (offline) offlineToast(b.server) else onOpenBrowse(b.server, b.path) })
                 }
             }
         }
