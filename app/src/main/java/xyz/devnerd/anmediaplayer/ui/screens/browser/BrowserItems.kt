@@ -51,7 +51,9 @@ import xyz.devnerd.anmediaplayer.ui.components.focusHighlight
 /** Poster hero banner atop a media folder (cover + title + IMDb rating/genre/plot). */
 @Composable
 fun MediaHero(imageUrl: String?, title: String, sub: String, seed: String) {
-    val info = xyz.devnerd.anmediaplayer.ui.components.rememberMovieInfo(seed)
+    val info = xyz.devnerd.anmediaplayer.ui.components.rememberMovieInfo(
+        seed.takeIf { xyz.devnerd.anmediaplayer.data.OmdbRepo.isLikelyTitle(it) },
+    )
     val img = imageUrl ?: info?.poster
     val metaLine = listOfNotNull(sub.ifBlank { null } ?: info?.year, info?.runtime, info?.genre).joinToString("  ·  ")
     Box(

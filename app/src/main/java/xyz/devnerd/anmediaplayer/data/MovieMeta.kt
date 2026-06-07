@@ -57,6 +57,23 @@ object OmdbRepo {
     fun cached(name: String): MovieInfo? = cache[name]
     fun isLookedUp(name: String): Boolean = cache.containsKey(name)
 
+    private val EP = Regex("(?i)s\\d{1,2}e\\d{1,2}")
+    private val SEASON = Regex("(?i)\\bseason\\b|^s\\d{1,2}(\\b|$)|^part\\s*\\d+$")
+
+    /**
+     * Confident "this name is a movie/TV-series TITLE" — requires a release year and
+     * excludes episode/season/part folders. When unsure (no year), return false so we
+     * never fetch metadata for category/listing/season folders.
+     */
+    fun isLikelyTitle(name: String): Boolean {
+        val n = name.trim()
+        if (EP.containsMatchIn(n)) return false
+        if (SEASON.containsMatchIn(n)) return false
+        if (YEAR.find(n) == null) return false
+        val t = query(n).first
+        return t.length >= 2 && t.any { it.isLetter() }
+    }
+
     suspend fun fetch(name: String): MovieInfo? {
         if (cache.containsKey(name)) return cache[name]
         synchronized(inFlight) { if (!inFlight.add(name)) return cache[name] }

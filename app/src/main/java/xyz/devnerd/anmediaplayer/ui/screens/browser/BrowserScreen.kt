@@ -193,14 +193,10 @@ fun BrowserScreen(
         return parts.joinToString("  ·  ")
     }
 
-    val EP = Regex("(?i)s\\d{1,2}e\\d{1,2}")
-    // Which entries get an IMDb metadata lookup: movie files (not episodes) and
-    // nested title folders — never root category folders / episode files.
-    fun metaNameFor(e: Entry): String? = when {
-        e.type == EntryType.VIDEO && !EP.containsMatchIn(e.name) -> e.name
-        e.isDir && path.isNotEmpty() -> e.name
-        else -> null
-    }
+    // Metadata lookup only for confident movie/series titles (release year present);
+    // never category/listing/season folders or episode files.
+    fun metaNameFor(e: Entry): String? =
+        if ((e.type == EntryType.VIDEO || e.isDir) && xyz.devnerd.anmediaplayer.data.OmdbRepo.isLikelyTitle(e.name)) e.name else null
 
     fun open(e: Entry) {
         when {
