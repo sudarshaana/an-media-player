@@ -48,9 +48,12 @@ import xyz.devnerd.anmediaplayer.ui.components.Poster
 import xyz.devnerd.anmediaplayer.ui.components.coverBrush
 import xyz.devnerd.anmediaplayer.ui.components.focusHighlight
 
-/** Poster hero banner shown atop a media folder (cover image + title overlaid). */
+/** Poster hero banner atop a media folder (cover + title + IMDb rating/genre/plot). */
 @Composable
 fun MediaHero(imageUrl: String?, title: String, sub: String, seed: String) {
+    val info = xyz.devnerd.anmediaplayer.ui.components.rememberMovieInfo(seed)
+    val img = imageUrl ?: info?.poster
+    val metaLine = listOfNotNull(sub.ifBlank { null } ?: info?.year, info?.runtime, info?.genre).joinToString("  ·  ")
     Box(
         Modifier
             .fillMaxWidth()
@@ -60,9 +63,9 @@ fun MediaHero(imageUrl: String?, title: String, sub: String, seed: String) {
             .background(coverBrush(seed)),
         contentAlignment = Alignment.BottomStart,
     ) {
-        if (imageUrl != null) {
+        if (img != null) {
             coil3.compose.AsyncImage(
-                model = imageUrl,
+                model = img,
                 contentDescription = null,
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
@@ -71,13 +74,17 @@ fun MediaHero(imageUrl: String?, title: String, sub: String, seed: String) {
         Box(
             Modifier.fillMaxSize().background(
                 androidx.compose.ui.graphics.Brush.verticalGradient(
-                    0.45f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.78f),
+                    0.35f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.82f),
                 ),
             ),
         )
         Column(Modifier.padding(16.dp)) {
-            Text(title, style = MaterialTheme.typography.titleLarge, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            if (sub.isNotBlank()) Text(sub, style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.85f), modifier = Modifier.padding(top = 2.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+                info?.rating?.let { xyz.devnerd.anmediaplayer.ui.components.RatingChip(it) }
+                Text(title, style = MaterialTheme.typography.titleLarge, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+            if (metaLine.isNotBlank()) Text(metaLine, style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.85f), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 3.dp))
+            info?.plot?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.78f), maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 5.dp)) }
         }
     }
 }
@@ -155,7 +162,9 @@ fun BrowseListRow(
     onMenu: () -> Unit,
     onLongClick: (() -> Unit)? = null,
     pinned: Boolean = false,
+    metaName: String? = null,
 ) {
+    val info = xyz.devnerd.anmediaplayer.ui.components.rememberMovieInfo(metaName)
     Row(
         Modifier
             .fillMaxWidth()
@@ -165,7 +174,7 @@ fun BrowseListRow(
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        LeadingTile(entry, artSeed, thumbModel, watched)
+        LeadingTile(entry, artSeed, thumbModel ?: info?.poster, watched)
         Column(Modifier.weight(1f).padding(start = 14.dp)) {
             Text(
                 if (entry.isDir) cleanTitle(entry.name) else entry.name,
@@ -186,6 +195,7 @@ fun BrowseListRow(
                 }
             }
         }
+        info?.rating?.let { xyz.devnerd.anmediaplayer.ui.components.RatingChip(it, Modifier.padding(start = 8.dp)) }
         if (res != null) {
             Box(Modifier.padding(start = 8.dp).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(5.dp)).padding(horizontal = 6.dp, vertical = 1.dp)) {
                 Text(res, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -216,7 +226,10 @@ fun BrowseGridCard(
     onLongClick: (() -> Unit)? = null,
     onMenu: (() -> Unit)? = null,
     pinned: Boolean = false,
+    metaName: String? = null,
 ) {
+    val info = xyz.devnerd.anmediaplayer.ui.components.rememberMovieInfo(metaName)
+    val model = imageModel ?: info?.poster
     Box(
         Modifier
             .fillMaxWidth()
@@ -226,9 +239,9 @@ fun BrowseGridCard(
             .background(coverBrush(posterSeed))
             .combinedClickable(onClick = onClick, onLongClick = onLongClick),
     ) {
-        if (imageModel != null) {
+        if (model != null) {
             coil3.compose.AsyncImage(
-                model = imageModel,
+                model = model,
                 contentDescription = null,
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
@@ -263,12 +276,13 @@ fun BrowseGridCard(
 
         Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = 10.dp, end = 10.dp, bottom = 10.dp, top = 28.dp)) {
             Text(label, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.W700), color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            if (chips.isNotEmpty()) {
+            if (chips.isNotEmpty() || info?.rating != null) {
                 androidx.compose.foundation.layout.FlowRow(
                     Modifier.padding(top = 6.dp),
                     horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(5.dp),
                     verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(5.dp),
                 ) {
+                    info?.rating?.let { xyz.devnerd.anmediaplayer.ui.components.RatingChip(it) }
                     chips.forEach { GridChip(it) }
                 }
             }

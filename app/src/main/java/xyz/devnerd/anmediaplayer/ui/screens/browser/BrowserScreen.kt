@@ -193,6 +193,15 @@ fun BrowserScreen(
         return parts.joinToString("  ·  ")
     }
 
+    val EP = Regex("(?i)s\\d{1,2}e\\d{1,2}")
+    // Which entries get an IMDb metadata lookup: movie files (not episodes) and
+    // nested title folders — never root category folders / episode files.
+    fun metaNameFor(e: Entry): String? = when {
+        e.type == EntryType.VIDEO && !EP.containsMatchIn(e.name) -> e.name
+        e.isDir && path.isNotEmpty() -> e.name
+        else -> null
+    }
+
     fun open(e: Entry) {
         when {
             e.isDir -> onOpenFolder(serverId, path + e.name)
@@ -303,6 +312,7 @@ fun BrowserScreen(
                             onMenu = { menuFor = e },
                             onLongClick = if (e.isDir) ({ pinFolder(e) }) else null,
                             pinned = e.isDir && isBookmarked(serverId, path + e.name),
+                            metaName = metaNameFor(e),
                         )
                     }
                 }
@@ -343,6 +353,7 @@ fun BrowserScreen(
                             onLongClick = if (e.isDir) ({ pinFolder(e) }) else null,
                             onMenu = if (!e.isDir) ({ menuFor = e }) else null,
                             pinned = e.isDir && isBookmarked(serverId, path + e.name),
+                            metaName = metaNameFor(e),
                         )
                     }
                 }
