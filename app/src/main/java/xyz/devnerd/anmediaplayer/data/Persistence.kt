@@ -126,6 +126,8 @@ object AppRepo {
 
     // ── progress ──
     fun getProgress(key: String): Int = progress[key]?.pos ?: 0
+    /** Duration stored with the last save (0 if none) — fallback when a listing has no durSec. */
+    fun getProgressDur(key: String): Int = progress[key]?.dur ?: 0
     fun isWatched(key: String, dur: Int?): Boolean {
         if (dur == null || dur == 0) return false
         val p = progress[key] ?: return false

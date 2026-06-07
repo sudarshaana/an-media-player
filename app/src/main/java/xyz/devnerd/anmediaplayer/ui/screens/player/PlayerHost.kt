@@ -88,9 +88,14 @@ fun PlayerHost(request: PlaybackRequest, settings: AppSettings, onClose: () -> U
 
     // Decide start position + whether to offer a non-blocking "Resume from …" pill.
     val decision = remember(file, curKeyPath, restartToken) {
-        val pos = AppRepo.getProgress(progressKey(request.serverId, curPath, file))
+        val pkey = progressKey(request.serverId, curPath, file)
+        val pos = AppRepo.getProgress(pkey)
+        // Fall back to the duration stored with the saved progress when the listing
+        // had no durSec (common for h5ai/autoindex) — else the pill never appears.
+        val effDur = if (durSec > 0) durSec else AppRepo.getProgressDur(pkey)
         // Eligible = watched a bit but not finished (>=92% = complete → no prompt).
-        val eligible = pos > 30 && durSec > 0 && pos.toFloat() / durSec < 0.92f
+        // If duration is unknown (0), still offer resume for meaningful progress.
+        val eligible = pos > 30 && (effDur <= 0 || pos.toFloat() / effDur < 0.92f)
         val isFirst = file == request.file && curPath == request.path && restartToken == 0
         when {
             !isFirst || !eligible -> 0 to null                              // from start, no prompt

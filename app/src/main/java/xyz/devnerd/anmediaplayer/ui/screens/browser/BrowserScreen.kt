@@ -24,23 +24,23 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.List as ListIcon
-import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.outlined.ArrowDownward
 import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.GridView
-import androidx.compose.material.icons.outlined.HighQuality
-import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SortByAlpha
+import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -84,9 +84,9 @@ import xyz.devnerd.anmediaplayer.ui.components.rememberFolderThumb
 
 private enum class SortBy(val label: String, val icon: ImageVector) {
     NAME("Name", Icons.Outlined.SortByAlpha),
-    DATE("Date modified", Icons.Outlined.History),
-    SIZE("Size", Icons.Outlined.HighQuality),
-    TYPE("Type", Icons.AutoMirrored.Outlined.Sort),
+    DATE("Date modified", Icons.Outlined.Schedule),
+    SIZE("Size", Icons.Outlined.Storage),
+    TYPE("Type", Icons.Outlined.Category),
 }
 
 private val RES = Regex("(2160p|1080p|720p|480p)", RegexOption.IGNORE_CASE)
@@ -253,7 +253,7 @@ fun BrowserScreen(
                         IconButton(onClick = { grid = !grid; onSetView(grid) }, modifier = actionBtn) {
                             Icon(if (grid) Icons.AutoMirrored.Outlined.ListIcon else Icons.Outlined.GridView, "Toggle view", modifier = actionIcon)
                         }
-                        IconButton(onClick = { sortOpen = true }, modifier = actionBtn) { Icon(Icons.AutoMirrored.Outlined.Sort, "Sort", modifier = actionIcon) }
+                        IconButton(onClick = { sortOpen = true }, modifier = actionBtn) { Icon(sortBy.icon, "Sort: ${sortBy.label}", modifier = actionIcon) }
                     },
                 )
             }
