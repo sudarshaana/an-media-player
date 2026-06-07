@@ -22,7 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.InsertDriveFile
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.PlayCircle
-import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Image
@@ -190,7 +190,7 @@ fun BrowseListRow(
             }
         }
         if (entry.isDir) {
-            if (pinned) Icon(Icons.Filled.PushPin, "Pinned", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 4.dp).size(16.dp))
+            if (pinned) Icon(Icons.Filled.Bookmark, "Pinned", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 4.dp).size(16.dp))
             Icon(Icons.Outlined.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp).size(20.dp))
         } else {
             IconButton(onClick = onMenu, modifier = Modifier.size(36.dp)) {
@@ -242,7 +242,7 @@ fun BrowseGridCard(
 
         if (pinned) {
             Box(Modifier.align(Alignment.TopStart).padding(8.dp).size(22.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.5f)), contentAlignment = Alignment.Center) {
-                Icon(Icons.Filled.PushPin, "Pinned", tint = Color.White, modifier = Modifier.size(13.dp))
+                Icon(Icons.Filled.Bookmark, "Pinned", tint = Color.White, modifier = Modifier.size(13.dp))
             }
         } else if (watched) {
             Box(Modifier.align(Alignment.TopStart).padding(8.dp).size(22.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {

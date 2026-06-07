@@ -143,11 +143,7 @@ fun App(
             composable(ROUTE_SUGGESTED) {
                 SuggestedServersScreen(
                     onClose = { navController.popBackStack() },
-                    onSaved = { server ->
-                        navController.navigate(browseRoute(server, emptyList())) {
-                            popUpTo(ROUTE_SUGGESTED) { inclusive = true }
-                        }
-                    },
+                    onBrowse = { server -> navController.navigate(browseRoute(server, emptyList())) },
                 )
             }
             composable(ROUTE_CONNECT) {

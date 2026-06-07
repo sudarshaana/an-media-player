@@ -77,6 +77,7 @@ fun DownloadsScreen(
     val ctx = LocalContext.current
     val items = DownloadsStore.items
     var filter by remember { mutableStateOf(DlFilter.ALL) }
+    var removing by remember { mutableStateOf<Download?>(null) }
 
     val done = items.filter { it.state == DownloadState.DONE }
     val used = done.sumOf { it.size }
@@ -124,11 +125,33 @@ fun DownloadsScreen(
                         onPlay = { onPlay(d) },
                         onPause = { DownloadsStore.pause(d.id) },
                         onResume = { DownloadsStore.resume(d.id) },
-                        onRemove = { DownloadsStore.remove(ctx, d.id) },
+                        onRemove = { removing = d },
                     )
                 }
             }
         }
+    }
+
+    removing?.let { d ->
+        var alsoDelete by remember(d.id) { mutableStateOf(false) }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { removing = null },
+            title = { Text("Remove download?") },
+            text = {
+                Column {
+                    Text(d.title, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(
+                        Modifier.fillMaxWidth().padding(top = 12.dp).clickable { alsoDelete = !alsoDelete },
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        androidx.compose.material3.Checkbox(checked = alsoDelete, onCheckedChange = { alsoDelete = it })
+                        Text("Also delete file from device", style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { DownloadsStore.remove(ctx, d.id, alsoDelete); removing = null }) { Text("Remove") } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { removing = null }) { Text("Cancel") } },
+        )
     }
 }
 

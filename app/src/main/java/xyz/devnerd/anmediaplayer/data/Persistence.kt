@@ -96,13 +96,19 @@ object AppRepo {
     }
 
     // ── servers ──
+    /** Ephemeral servers for "Browse without saving" — resolvable by id, not persisted, not shown in the Servers list. */
+    private val transient = mutableStateMapOf<String, Server>()
+
     fun addServer(s: Server) { servers.removeAll { it.id == s.id }; servers.add(s); persistServers() }
     fun removeServer(id: String) { servers.removeAll { it.id == id }; persistServers() }
     fun toggleFavorite(id: String) {
         val i = servers.indexOfFirst { it.id == id }
         if (i >= 0) { servers[i] = servers[i].copy(favorite = !servers[i].favorite); persistServers() }
     }
-    fun serverById(id: String) = servers.firstOrNull { it.id == id }
+    /** Register a server resolvable for browsing only — no persistence, hidden from the saved list. */
+    fun addTransient(s: Server) { if (servers.none { it.id == s.id }) transient[s.id] = s }
+    fun serverById(id: String) = servers.firstOrNull { it.id == id } ?: transient[id]
+    fun isSaved(id: String) = servers.any { it.id == id }
 
     private fun persistServers() {
         val snapshot = servers.toList()
@@ -370,9 +376,16 @@ object DownloadsStore {
         if (prev.state != state || prev.localUri != items[i].localUri) persist()
     }
 
-    fun remove(ctx: Context, id: String) {
+    fun remove(ctx: Context, id: String, deleteFile: Boolean = false) {
         jobs.remove(id)?.cancel()
-        items.firstOrNull { it.id == id }?.let { runCatching { fileFor(it.file).delete() } }
+        val item = items.firstOrNull { it.id == id }
+        if (deleteFile && item != null) {
+            runCatching { fileFor(item.file).delete() }
+            // Delete from the chosen SAF folder too, if it lives there.
+            item.localUri?.takeIf { it.startsWith("content://") }?.let { uri ->
+                runCatching { androidx.documentfile.provider.DocumentFile.fromSingleUri(ctx, android.net.Uri.parse(uri))?.delete() }
+            }
+        }
         items.removeAll { it.id == id }
         persist()
     }

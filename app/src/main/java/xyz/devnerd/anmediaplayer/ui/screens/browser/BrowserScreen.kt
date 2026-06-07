@@ -135,9 +135,9 @@ fun BrowserScreen(
     var refreshKey by remember { mutableIntStateOf(0) }
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val pinFolder: (Entry) -> Unit = { e ->
-        val pinned = AppRepo.isShortcut(serverId, path + e.name)
-        if (pinned) { AppRepo.removeShortcut("$serverId|${(path + e.name).joinToString("/")}"); android.widget.Toast.makeText(ctx, "Removed from Home", android.widget.Toast.LENGTH_SHORT).show() }
-        else { AppRepo.addShortcut(serverId, path + e.name, cleanTitle(e.name)); android.widget.Toast.makeText(ctx, "Pinned to Home", android.widget.Toast.LENGTH_SHORT).show() }
+        val was = isBookmarked(serverId, path + e.name)
+        onToggleBookmark(serverId, path + e.name)
+        android.widget.Toast.makeText(ctx, if (was) "Removed bookmark" else "Bookmarked", android.widget.Toast.LENGTH_SHORT).show()
     }
 
     LaunchedEffect(serverId, pathKey, refreshKey) {
@@ -301,7 +301,7 @@ fun BrowserScreen(
                             onClick = { open(e) },
                             onMenu = { menuFor = e },
                             onLongClick = if (e.isDir) ({ pinFolder(e) }) else null,
-                            pinned = e.isDir && AppRepo.isShortcut(serverId, path + e.name),
+                            pinned = e.isDir && isBookmarked(serverId, path + e.name),
                         )
                     }
                 }
@@ -339,7 +339,7 @@ fun BrowserScreen(
                             onClick = { open(e) },
                             onLongClick = if (e.isDir) ({ pinFolder(e) }) else null,
                             onMenu = if (!e.isDir) ({ menuFor = e }) else null,
-                            pinned = e.isDir && AppRepo.isShortcut(serverId, path + e.name),
+                            pinned = e.isDir && isBookmarked(serverId, path + e.name),
                         )
                     }
                 }
