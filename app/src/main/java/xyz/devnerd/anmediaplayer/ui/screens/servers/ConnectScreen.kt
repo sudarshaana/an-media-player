@@ -75,7 +75,7 @@ fun ConnectScreen(
     onConnected: (serverId: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var url by remember { mutableStateOf("http://media.lan/files/") }
+    var url by remember { mutableStateOf("http://") }
     var needAuth by remember { mutableStateOf(false) }
     var user by remember { mutableStateOf("") }
     var pass by remember { mutableStateOf("") }
@@ -91,6 +91,7 @@ fun ConnectScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Add server") },
+                windowInsets = androidx.compose.foundation.layout.WindowInsets(0),
                 navigationIcon = {
                     IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") }
                 },

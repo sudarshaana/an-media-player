@@ -200,6 +200,7 @@ fun BrowserScreen(
                 )
             } else {
                 TopAppBar(
+                    windowInsets = androidx.compose.foundation.layout.WindowInsets(0),
                     navigationIcon = { IconButton(onClick = onUp) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Up") } },
                     title = {
                         Column {
@@ -385,6 +386,7 @@ private fun ActionRow(icon: ImageVector, label: String, onClick: () -> Unit) {
 @Composable
 private fun SearchBar(query: String, onQuery: (String) -> Unit, onClose: () -> Unit) {
     TopAppBar(
+        windowInsets = androidx.compose.foundation.layout.WindowInsets(0),
         navigationIcon = { IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") } },
         title = {
             BasicTextField(

@@ -226,24 +226,113 @@ object ThumbCache {
     }
 }
 
-/** In-memory download queue (offline execution deferred to a later phase). */
+/** Real downloads via Android DownloadManager → app external Movies dir. Persisted. */
 object DownloadsStore {
     val items = mutableStateListOf<Download>()
+    private lateinit var appCtx: Context
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val KEY_DOWNLOADS = stringPreferencesKey("downloads")
 
-    fun add(server: String, path: List<String>, file: String, title: String, sub: String, size: Long, durSec: Int) {
-        if (items.any { it.file == file }) return
-        items.add(
-            Download(
-                id = "dl_${file.hashCode()}", title = title, sub = sub, file = file, size = size,
-                state = DownloadState.QUEUED, server = server, path = path, durSec = durSec,
-            ),
-        )
+    fun init(context: Context) {
+        appCtx = context.applicationContext
+        runBlocking { items.addAll(parseDownloads(appCtx.repoStore.data.first()[KEY_DOWNLOADS])) }
     }
 
-    fun remove(id: String) { items.removeAll { it.id == id } }
+    private fun persist() {
+        if (!::appCtx.isInitialized) return
+        val snap = items.toList()
+        scope.launch { appCtx.repoStore.edit { it[KEY_DOWNLOADS] = serializeDownloads(snap) } }
+    }
 
-    fun setState(id: String, state: DownloadState, progress: Int? = null, whenLabel: String? = null) {
+    private fun dm(ctx: Context) = ctx.getSystemService(Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
+
+    fun enqueue(ctx: Context, server: String, path: List<String>, file: String, title: String, sub: String, size: Long, durSec: Int, url: String, wifiOnly: Boolean) {
+        if (url.isBlank()) return
+        if (items.any { it.file == file && it.state != DownloadState.FAILED }) return
+        val safe = file.replace(Regex("[^A-Za-z0-9._-]"), "_")
+        val req = android.app.DownloadManager.Request(android.net.Uri.parse(url))
+            .setTitle(title)
+            .setDescription(sub)
+            .setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+            .setDestinationInExternalFilesDir(ctx, android.os.Environment.DIRECTORY_MOVIES, safe)
+            .setAllowedOverMetered(!wifiOnly)
+            .setAllowedOverRoaming(false)
+        val id = runCatching { dm(ctx).enqueue(req) }.getOrNull() ?: return
+        items.add(Download("dl_$id", title, sub, file, size, DownloadState.DOWNLOADING, 0, null, server, path, durSec, id))
+        persist()
+    }
+
+    /** Poll DownloadManager and update item progress/state/localUri. */
+    fun refresh(ctx: Context) {
+        val active = items.filter { it.dmId != null && (it.state == DownloadState.DOWNLOADING || it.state == DownloadState.QUEUED) }
+        if (active.isEmpty()) return
+        val manager = dm(ctx)
+        for (d in active) {
+            val q = android.app.DownloadManager.Query().setFilterById(d.dmId!!)
+            runCatching {
+                manager.query(q).use { c ->
+                    if (!c.moveToFirst()) { update(d.id, DownloadState.FAILED); return@use }
+                    val status = c.getInt(c.getColumnIndexOrThrow(android.app.DownloadManager.COLUMN_STATUS))
+                    val done = c.getLong(c.getColumnIndexOrThrow(android.app.DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR))
+                    val total = c.getLong(c.getColumnIndexOrThrow(android.app.DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
+                    val pct = if (total > 0) (done * 100 / total).toInt() else 0
+                    when (status) {
+                        android.app.DownloadManager.STATUS_SUCCESSFUL -> {
+                            val uri = c.getString(c.getColumnIndexOrThrow(android.app.DownloadManager.COLUMN_LOCAL_URI))
+                            update(d.id, DownloadState.DONE, 100, "Just now", uri)
+                        }
+                        android.app.DownloadManager.STATUS_FAILED -> update(d.id, DownloadState.FAILED)
+                        android.app.DownloadManager.STATUS_PENDING, android.app.DownloadManager.STATUS_PAUSED -> update(d.id, DownloadState.QUEUED, pct)
+                        else -> update(d.id, DownloadState.DOWNLOADING, pct)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun update(id: String, state: DownloadState, progress: Int? = null, whenLabel: String? = null, localUri: String? = null) {
         val i = items.indexOfFirst { it.id == id }
-        if (i >= 0) items[i] = items[i].copy(state = state, progress = progress ?: items[i].progress, whenLabel = whenLabel ?: items[i].whenLabel)
+        if (i >= 0) {
+            val prev = items[i]
+            items[i] = prev.copy(state = state, progress = progress ?: prev.progress, whenLabel = whenLabel ?: prev.whenLabel, localUri = localUri ?: prev.localUri)
+            if (prev.state != state || prev.localUri != items[i].localUri) persist()
+        }
+    }
+
+    fun remove(ctx: Context, id: String) {
+        items.firstOrNull { it.id == id }?.dmId?.let { runCatching { dm(ctx).remove(it) } }
+        items.removeAll { it.id == id }
+        persist()
+    }
+
+    private fun serializeDownloads(list: List<Download>): String = JSONArray().apply {
+        list.forEach { d ->
+            put(JSONObject().apply {
+                put("id", d.id); put("title", d.title); put("sub", d.sub); put("file", d.file)
+                put("size", d.size); put("state", d.state.name); put("progress", d.progress ?: JSONObject.NULL)
+                put("whenLabel", d.whenLabel ?: JSONObject.NULL); put("server", d.server); put("path", JSONArray(d.path))
+                put("durSec", d.durSec); put("dmId", d.dmId ?: JSONObject.NULL); put("localUri", d.localUri ?: JSONObject.NULL)
+            })
+        }
+    }.toString()
+
+    private fun parseDownloads(s: String?): List<Download> {
+        if (s.isNullOrBlank()) return emptyList()
+        return runCatching {
+            val arr = JSONArray(s)
+            (0 until arr.length()).map { i ->
+                val o = arr.getJSONObject(i)
+                val pathArr = o.getJSONArray("path")
+                val path = (0 until pathArr.length()).map { pathArr.getString(it) }
+                Download(
+                    o.getString("id"), o.getString("title"), o.getString("sub"), o.getString("file"),
+                    o.getLong("size"), DownloadState.valueOf(o.getString("state")),
+                    if (o.isNull("progress")) null else o.getInt("progress"),
+                    o.optString("whenLabel").ifBlank { null }, o.getString("server"), path, o.getInt("durSec"),
+                    if (o.isNull("dmId")) null else o.getLong("dmId"),
+                    o.optString("localUri").ifBlank { null },
+                )
+            }
+        }.getOrDefault(emptyList())
     }
 }

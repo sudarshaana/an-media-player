@@ -82,13 +82,13 @@ data class SettingsActions(
 fun SettingsScreen(settings: AppSettings, actions: SettingsActions, modifier: Modifier = Modifier) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        topBar = { TopAppBar(title = { Text("Settings") }) },
+        topBar = { TopAppBar(title = { Text("Settings") }, windowInsets = androidx.compose.foundation.layout.WindowInsets(0)) },
     ) { inner ->
         LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(top = inner.calculateTopPadding(), bottom = 32.dp)) {
             item {
                 SettingGroup("APPEARANCE") {
                     RowBelow(Icons.Outlined.DarkMode, "Theme") {
-                        Seg(ThemeMode.entries.map { it to it.label }, settings.themeMode, actions.onThemeMode)
+                        Seg(ThemeMode.entries.map { it to it.label }, settings.themeMode, actions.onThemeMode, Modifier.fillMaxWidth())
                     }
                     Div()
                     RowBelow(Icons.Outlined.Lightbulb, "Accent") {
@@ -109,7 +109,7 @@ fun SettingsScreen(settings: AppSettings, actions: SettingsActions, modifier: Mo
             item {
                 SettingGroup("PLAYBACK") {
                     RowBelow(Icons.Outlined.PlayCircle, "Player layout") {
-                        Seg(PlayerLayout.entries.map { it to it.label }, settings.playerLayout, actions.onPlayerLayout)
+                        Seg(PlayerLayout.entries.map { it to it.label }, settings.playerLayout, actions.onPlayerLayout, Modifier.fillMaxWidth())
                     }
                     Div()
                     RowInline(Icons.Outlined.SkipNext, "Auto-play next", "Continue to the next file in a folder") {
@@ -141,21 +141,10 @@ fun SettingsScreen(settings: AppSettings, actions: SettingsActions, modifier: Mo
                 }
             }
             item {
-                SettingGroup("SECURITY") {
-                    RowInline(Icons.Outlined.Shield, "App lock", "Require biometrics to open") {
-                        Switch(checked = settings.appLock, onCheckedChange = actions.onAppLock)
-                    }
-                    Div()
-                    RowInline(Icons.Outlined.Key, "Saved credentials", "3 servers · Keystore-encrypted") {
-                        Icon(Icons.Outlined.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            }
-            item {
                 SettingGroup("ABOUT") {
-                    RowInline(Icons.Outlined.Info, "Player engine", "Media3 · libVLC fallback") {}
+                    RowInline(Icons.Outlined.Info, "Player engine", "Media3 (ExoPlayer)") {}
                     Div()
-                    RowInline(Icons.Outlined.Storage, "Version", "1.0.0 (build 142)") {}
+                    RowInline(Icons.Outlined.Storage, "Version", appVersion()) {}
                 }
             }
         }
@@ -190,7 +179,7 @@ private fun RowBelow(icon: ImageVector, title: String, sub: String? = null, cont
             Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
             Text(title, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
         }
-        Box(Modifier.padding(top = 12.dp, start = 38.dp)) { control() }
+        Box(Modifier.fillMaxWidth().padding(top = 12.dp)) { control() }
     }
 }
 
@@ -199,15 +188,27 @@ private fun Div() = HorizontalDivider(Modifier.padding(start = 58.dp), color = M
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun <T> Seg(options: List<Pair<T, String>>, selected: T, onChange: (T) -> Unit) {
-    SingleChoiceSegmentedButtonRow {
+private fun <T> Seg(options: List<Pair<T, String>>, selected: T, onChange: (T) -> Unit, modifier: Modifier = Modifier) {
+    SingleChoiceSegmentedButtonRow(modifier) {
         options.forEachIndexed { i, (value, label) ->
             SegmentedButton(
                 selected = value == selected,
                 onClick = { onChange(value) },
                 shape = SegmentedButtonDefaults.itemShape(i, options.size),
-            ) { Text(label, style = MaterialTheme.typography.labelMedium) }
+            ) { Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1) }
         }
+    }
+}
+
+@Composable
+private fun appVersion(): String {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    return androidx.compose.runtime.remember {
+        runCatching {
+            @Suppress("DEPRECATION")
+            val pi = ctx.packageManager.getPackageInfo(ctx.packageName, 0)
+            "${pi.versionName} (build ${pi.versionCode})"
+        }.getOrDefault("1.0")
     }
 }
 

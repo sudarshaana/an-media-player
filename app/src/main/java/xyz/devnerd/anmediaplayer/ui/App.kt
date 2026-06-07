@@ -57,6 +57,7 @@ fun App(
     val currentDest = backStackEntry?.destination
     val onTopDest = TopDest.entries.any { d -> currentDest?.hierarchy?.any { it.route == d.route } == true }
 
+    val appContext = androidx.compose.ui.platform.LocalContext.current
     var playback by remember { mutableStateOf<PlaybackRequest?>(null) }
     val play: (String, List<String>, String, Int?) -> Unit = { server, path, file, dur ->
         playback = PlaybackRequest(server, path, file, dur ?: 0)
@@ -123,7 +124,10 @@ fun App(
                 DownloadsScreen(
                     modifier = Modifier.fillMaxSize(),
                     wifiOnly = settings.wifiOnly,
-                    onPlay = play,
+                    onPlay = { d ->
+                        playback = if (d.localUri != null) PlaybackRequest(d.server, d.path, d.file, d.durSec, directUrl = d.localUri)
+                        else PlaybackRequest(d.server, d.path, d.file, d.durSec)
+                    },
                     onManage = { navController.switchTab(TopDest.SETTINGS.route) },
                 )
             }
@@ -157,7 +161,9 @@ fun App(
                     onPlay = play,
                     onDownload = { e ->
                         val np = prettyName(e.name)
-                        DownloadsStore.add(server, path, e.name, np.primary, np.secondary.ifBlank { e.name }, e.size ?: 0, e.durSec ?: 0)
+                        val url = xyz.devnerd.anmediaplayer.data.MediaRepo.fileUrl(server, path, e.name)
+                        DownloadsStore.enqueue(appContext, server, path, e.name, np.primary, np.secondary.ifBlank { e.name }, e.size ?: 0, e.durSec ?: 0, url, settings.wifiOnly)
+                        android.widget.Toast.makeText(appContext, "Added to downloads", android.widget.Toast.LENGTH_SHORT).show()
                     },
                     onSetView = { g -> settingsActions.onBrowseView(if (g) BrowseView.GRID else BrowseView.LIST) },
                     onPlayEpisode = { pl, start -> playback = PlaybackRequest(server, start.path, start.file, start.durSec, playlist = pl) },

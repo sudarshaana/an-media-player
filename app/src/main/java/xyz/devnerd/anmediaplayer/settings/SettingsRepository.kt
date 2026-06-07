@@ -13,7 +13,7 @@ import xyz.devnerd.anmediaplayer.ui.theme.Accent
 
 /** Three-way theme selection. Dark is the app's default look. */
 enum class ThemeMode(val key: String, val label: String) {
-    SYSTEM("system", "System default"),
+    SYSTEM("system", "System"),
     LIGHT("light", "Light"),
     DARK("dark", "Dark");
 

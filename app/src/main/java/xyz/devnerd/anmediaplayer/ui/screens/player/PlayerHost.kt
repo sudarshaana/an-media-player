@@ -40,6 +40,8 @@ data class PlaybackRequest(
     val durSec: Int,
     /** Cross-folder playlist (e.g. a whole series). Null = use the file's folder siblings. */
     val playlist: List<EpisodeRef>? = null,
+    /** Direct local file/content URI for offline playback (bypasses the server). */
+    val directUrl: String? = null,
 )
 
 @Composable
@@ -100,7 +102,7 @@ fun PlayerHost(request: PlaybackRequest, settings: AppSettings, onClose: () -> U
     val resumePromptSec = decision.second
 
     val np = prettyName(file)
-    val streamUrl = MediaRepo.fileUrl(request.serverId, curPath, file)
+    val streamUrl = if (curPath == request.path && file == request.file && request.directUrl != null) request.directUrl else MediaRepo.fileUrl(request.serverId, curPath, file)
     val subtitleUrl = matchSubtitle(loaded, file)?.let { MediaRepo.fileUrl(request.serverId, curPath, it.name) }
     val coverUrl = loaded.firstOrNull { it.type == xyz.devnerd.anmediaplayer.data.EntryType.IMAGE }?.let { MediaRepo.fileUrl(request.serverId, curPath, it.name) }
 

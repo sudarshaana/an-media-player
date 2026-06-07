@@ -74,6 +74,7 @@ fun ServersScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Servers") },
+                windowInsets = androidx.compose.foundation.layout.WindowInsets(0),
                 actions = {
                     IconButton(onClick = {}) { Icon(Icons.Outlined.History, "History") }
                 },

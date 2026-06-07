@@ -49,7 +49,7 @@ data class RecentItem(
     val path: List<String>,
 )
 
-enum class DownloadState { DONE, DOWNLOADING, QUEUED }
+enum class DownloadState { DONE, DOWNLOADING, QUEUED, FAILED }
 
 data class Download(
     val id: String,
@@ -63,6 +63,8 @@ data class Download(
     val server: String,
     val path: List<String>,
     val durSec: Int,
+    val dmId: Long? = null,
+    val localUri: String? = null,
 )
 
 data class Bookmark(val server: String, val path: List<String>)
