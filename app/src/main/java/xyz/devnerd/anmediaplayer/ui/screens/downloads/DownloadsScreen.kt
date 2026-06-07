@@ -30,13 +30,12 @@ import androidx.compose.material.icons.outlined.Wifi
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
@@ -82,10 +81,9 @@ fun DownloadsScreen(
     val done = items.filter { it.state == DownloadState.DONE }
     val used = done.sumOf { it.size }
 
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     Scaffold(
-        modifier = modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = { LargeTopAppBar(title = { Text("Downloads") }, actions = { IconButton(onClick = {}) { Icon(Icons.Outlined.MoreVert, "More") } }, scrollBehavior = scrollBehavior) },
+        modifier = modifier.fillMaxSize(),
+        topBar = { TopAppBar(title = { Text("Downloads") }, actions = { IconButton(onClick = {}) { Icon(Icons.Outlined.MoreVert, "More") } }) },
     ) { inner ->
         LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = inner.calculateTopPadding(), bottom = 28.dp)) {
             item {

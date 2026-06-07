@@ -148,6 +148,10 @@ fun PlayerScreen(
     fun currentBrightness(): Float = activity?.window?.attributes?.screenBrightness?.takeIf { it in 0f..1f } ?: 0.5f
     fun currentVolume(): Float = audio.getStreamVolume(android.media.AudioManager.STREAM_MUSIC).toFloat() / maxVol
 
+    // Cast (Google default receiver). Null when Play Services Cast unavailable.
+    val castContext = remember { runCatching { com.google.android.gms.cast.framework.CastContext.getSharedInstance(context) }.getOrNull() }
+    val castPlayer = remember(castContext) { castContext?.let { androidx.media3.cast.CastPlayer(it) } }
+
     val exo = remember(streamUrl) {
         ExoPlayer.Builder(context).build().apply {
             val item = MediaItem.Builder().setUri(streamUrl).apply {
@@ -181,6 +185,8 @@ fun PlayerScreen(
     var resize by remember { mutableStateOf("fit") }
     var sheet by remember { mutableStateOf<PlayerSheet?>(null) }
     var showPlaylist by remember { mutableStateOf(false) }
+    var showMore by remember { mutableStateOf(false) }
+    var repeatOne by remember { mutableStateOf(false) }
     var scrubbing by remember { mutableStateOf(false) }
     var seekFx by remember { mutableStateOf<SeekFx?>(null) }
     var gesture by remember { mutableStateOf<Gesture?>(null) }
@@ -212,6 +218,19 @@ fun PlayerScreen(
             exo.removeListener(listener); exo.release()
             activity?.window?.let { w -> w.attributes = w.attributes.apply { screenBrightness = -1f } }
         }
+    }
+
+    // Hand off to / from Cast when a session connects.
+    DisposableEffect(castPlayer, streamUrl) {
+        val l = object : androidx.media3.cast.SessionAvailabilityListener {
+            override fun onCastSessionAvailable() {
+                castPlayer?.apply { setMediaItem(MediaItem.fromUri(streamUrl)); playWhenReady = true; prepare(); seekTo(exo.currentPosition) }
+                exo.pause()
+            }
+            override fun onCastSessionUnavailable() { exo.play() }
+        }
+        castPlayer?.setSessionAvailabilityListener(l)
+        onDispose { castPlayer?.setSessionAvailabilityListener(null); castPlayer?.release() }
     }
 
     // poll position/duration/buffer
@@ -398,7 +417,7 @@ fun PlayerScreen(
         }
 
         AnimatedVisibility(showUI, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.TopCenter)) {
-            TopChrome(np.primary, subtitleLabel, cinema, onClose, onPlaylist = if (playlist.size > 1) ({ showPlaylist = true }) else null, onPiP = { enterPip() })
+            TopChrome(np.primary, subtitleLabel, cinema, onClose, onPlaylist = if (playlist.size > 1) ({ showPlaylist = true }) else null, onPiP = { enterPip() }, onMore = { showMore = true }, castSlot = if (castContext != null) ({ CastRouteButton() }) else null)
         }
         if (!minimal) {
             AnimatedVisibility(showUI, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.Center)) {
@@ -463,10 +482,24 @@ fun PlayerScreen(
     }
 
     if (showPlaylist) PlaylistSheet(playlist, currentIndex, onPick = { onSelectIndex(it); showPlaylist = false }, onDismiss = { showPlaylist = false })
+
+    if (showMore) {
+        val vf = exo.videoFormat
+        MoreSheet(
+            resolution = vf?.let { if (it.width > 0) "${it.width}×${it.height}" else null },
+            videoCodec = vf?.codecs ?: vf?.sampleMimeType?.substringAfter('/')?.uppercase(),
+            audioLabel = audioOpts.firstOrNull { it.selected }?.label,
+            repeatOne = repeatOne,
+            onToggleRepeat = { repeatOne = !repeatOne; exo.repeatMode = if (repeatOne) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF },
+            onLock = { locked = true; showUI = false; showMore = false },
+            onResize = { sheet = PlayerSheet.RESIZE; showMore = false },
+            onDismiss = { showMore = false },
+        )
+    }
 }
 
 @Composable
-private fun TopChrome(title: String, subtitle: String, cinema: Boolean, onClose: () -> Unit, onPlaylist: (() -> Unit)? = null, onPiP: (() -> Unit)? = null) {
+private fun TopChrome(title: String, subtitle: String, cinema: Boolean, onClose: () -> Unit, onPlaylist: (() -> Unit)? = null, onPiP: (() -> Unit)? = null, onMore: (() -> Unit)? = null, castSlot: (@Composable () -> Unit)? = null) {
     Row(
         Modifier.fillMaxWidth()
             .then(if (cinema) Modifier else Modifier.background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.6f), Color.Transparent))))
@@ -479,9 +512,9 @@ private fun TopChrome(title: String, subtitle: String, cinema: Boolean, onClose:
             Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f), maxLines = 1)
         }
         if (onPlaylist != null) IconButton(onClick = onPlaylist) { Icon(Icons.AutoMirrored.Outlined.PlaylistPlay, "Playlist", tint = Color.White) }
-        IconButton(onClick = {}) { Icon(Icons.Outlined.Cast, "Cast", tint = Color.White) }
+        if (castSlot != null) castSlot() else IconButton(onClick = {}, enabled = false) { Icon(Icons.Outlined.Cast, "Cast", tint = Color.White.copy(alpha = 0.4f)) }
         IconButton(onClick = { onPiP?.invoke() }) { Icon(Icons.Outlined.PictureInPictureAlt, "PiP", tint = Color.White) }
-        IconButton(onClick = {}) { Icon(Icons.Outlined.MoreVert, "More", tint = Color.White) }
+        IconButton(onClick = { onMore?.invoke() }) { Icon(Icons.Outlined.MoreVert, "More", tint = Color.White) }
     }
 }
 
@@ -596,4 +629,18 @@ private fun CinemaDeck(
         }
         ControlRow(subOn, speed, resizeLabel, MaterialTheme.colorScheme.onSurface, cinema = true, onSheet = onSheet, onLock = onLock)
     }
+}
+
+@Composable
+private fun CastRouteButton() {
+    AndroidView(
+        factory = { ctx ->
+            // MediaRouteButton requires an AppCompat theme; wrap the Compose/Material context.
+            val themed = androidx.appcompat.view.ContextThemeWrapper(ctx, androidx.appcompat.R.style.Theme_AppCompat_DayNight_NoActionBar)
+            androidx.mediarouter.app.MediaRouteButton(themed).apply {
+                com.google.android.gms.cast.framework.CastButtonFactory.setUpMediaRouteButton(themed, this)
+            }
+        },
+        modifier = Modifier.size(48.dp).padding(12.dp),
+    )
 }

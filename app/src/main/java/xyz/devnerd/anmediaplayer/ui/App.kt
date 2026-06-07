@@ -62,6 +62,11 @@ fun App(
         playback = PlaybackRequest(server, path, file, dur ?: 0)
     }
 
+    // Check saved-server reachability on launch / when the list changes.
+    androidx.compose.runtime.LaunchedEffect(AppRepo.servers.size) {
+        xyz.devnerd.anmediaplayer.data.ServerHealth.checkAll(AppRepo.servers.toList())
+    }
+
     Box(Modifier.fillMaxSize()) {
     Scaffold(
         modifier = Modifier.fillMaxSize(),

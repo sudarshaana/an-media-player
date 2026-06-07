@@ -31,6 +31,7 @@ data class ProgressRecord(
     val pos: Int,
     val dur: Int,
     val updated: Long,
+    val cover: String? = null,
 )
 
 /**
@@ -91,9 +92,10 @@ object AppRepo {
         val p = progress[key] ?: return false
         return p.pos.toFloat() / dur >= 0.92f
     }
-    fun saveProgress(server: String, path: List<String>, file: String, pos: Int, dur: Int, nowMs: Long) {
+    fun saveProgress(server: String, path: List<String>, file: String, pos: Int, dur: Int, nowMs: Long, cover: String? = null) {
         val key = progressKey(server, path, file)
-        progress[key] = ProgressRecord(server, path, file, pos, dur, nowMs)
+        val keepCover = cover ?: progress[key]?.cover
+        progress[key] = ProgressRecord(server, path, file, pos, dur, nowMs, keepCover)
         val snapshot = progress.values.toList()
         scope.launch { ctx.repoStore.edit { it[KEY_PROGRESS] = serializeProgress(snapshot) } }
     }
@@ -104,7 +106,7 @@ object AppRepo {
         .sortedByDescending { it.updated }
         .map {
             val np = prettyName(it.file)
-            ContinueItem(it.server, it.path, it.file, it.pos, it.dur, np.primary, np.secondary, if (np.ep != null) "episode" else "movie")
+            ContinueItem(it.server, it.path, it.file, it.pos, it.dur, np.primary, np.secondary, if (np.ep != null) "episode" else "movie", it.cover)
         }
 
     // ── (de)serialization ──
@@ -161,7 +163,7 @@ object AppRepo {
         list.forEach { r ->
             put(JSONObject().apply {
                 put("server", r.server); put("path", JSONArray(r.path)); put("file", r.file)
-                put("pos", r.pos); put("dur", r.dur); put("updated", r.updated)
+                put("pos", r.pos); put("dur", r.dur); put("updated", r.updated); put("cover", r.cover ?: JSONObject.NULL)
             })
         }
     }.toString()
@@ -175,7 +177,7 @@ object AppRepo {
                     val o = arr.getJSONObject(i)
                     val p = o.getJSONArray("path")
                     val path = List(p.length()) { p.getString(it) }
-                    val r = ProgressRecord(o.getString("server"), path, o.getString("file"), o.getInt("pos"), o.getInt("dur"), o.optLong("updated"))
+                    val r = ProgressRecord(o.getString("server"), path, o.getString("file"), o.getInt("pos"), o.getInt("dur"), o.optLong("updated"), o.optString("cover").ifBlank { null })
                     put(progressKey(r.server, r.path, r.file), r)
                 }
             }

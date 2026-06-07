@@ -19,6 +19,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.AspectRatio
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -31,6 +33,57 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MoreSheet(
+    resolution: String?,
+    videoCodec: String?,
+    audioLabel: String?,
+    repeatOne: Boolean,
+    onToggleRepeat: () -> Unit,
+    onLock: () -> Unit,
+    onResize: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Text("More", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+        Row(
+            Modifier.fillMaxWidth().clickable { onToggleRepeat() }.padding(horizontal = 24.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp),
+        ) {
+            androidx.compose.material3.Icon(Icons.Outlined.Repeat, null, tint = if (repeatOne) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Repeat", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+            androidx.compose.material3.Switch(checked = repeatOne, onCheckedChange = { onToggleRepeat() })
+        }
+        MoreAction(Icons.Outlined.Lock, "Lock screen", onLock)
+        MoreAction(Icons.Outlined.AspectRatio, "Resize", onResize)
+        androidx.compose.material3.HorizontalDivider(Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+        InfoRow("Resolution", resolution ?: "—")
+        InfoRow("Video", videoCodec ?: "—")
+        InfoRow("Audio", audioLabel ?: "—")
+        Box(Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun MoreAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 24.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp),
+    ) {
+        androidx.compose.material3.Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+    }
+}
+
+@Composable
+private fun InfoRow(k: String, v: String) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(k, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(90.dp))
+        Text(v, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

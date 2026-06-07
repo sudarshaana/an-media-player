@@ -102,6 +102,7 @@ fun PlayerHost(request: PlaybackRequest, settings: AppSettings, onClose: () -> U
     val np = prettyName(file)
     val streamUrl = MediaRepo.fileUrl(request.serverId, curPath, file)
     val subtitleUrl = matchSubtitle(loaded, file)?.let { MediaRepo.fileUrl(request.serverId, curPath, it.name) }
+    val coverUrl = loaded.firstOrNull { it.type == xyz.devnerd.anmediaplayer.data.EntryType.IMAGE }?.let { MediaRepo.fileUrl(request.serverId, curPath, it.name) }
 
     fun goTo(ep: EpisodeRef?) {
         ep ?: return
@@ -135,7 +136,7 @@ fun PlayerHost(request: PlaybackRequest, settings: AppSettings, onClose: () -> U
                     onNext = { goTo(nextEp) },
                     onClose = onClose,
                     onEnded = { ended = true },
-                    saveProgress = { pos, dur -> AppRepo.saveProgress(request.serverId, curPath, file, pos, dur, System.currentTimeMillis()) },
+                    saveProgress = { pos, dur -> AppRepo.saveProgress(request.serverId, curPath, file, pos, dur, System.currentTimeMillis(), coverUrl) },
                 )
             }
         }

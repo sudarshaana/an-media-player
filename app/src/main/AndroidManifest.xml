@@ -16,6 +16,9 @@
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.AnMediaPlayer">
+        <meta-data
+            android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"
+            android:value="xyz.devnerd.anmediaplayer.CastOptionsProvider" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

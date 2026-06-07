@@ -35,13 +35,12 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -68,18 +67,16 @@ fun ServersScreen(
 ) {
     val servers = AppRepo.servers
     var menuFor by remember { mutableStateOf<Server?>(null) }
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val ctx = LocalContext.current
 
     Scaffold(
-        modifier = modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
+        modifier = modifier.fillMaxSize(),
         topBar = {
-            LargeTopAppBar(
+            TopAppBar(
                 title = { Text("Servers") },
                 actions = {
                     IconButton(onClick = {}) { Icon(Icons.Outlined.History, "History") }
                 },
-                scrollBehavior = scrollBehavior,
             )
         },
         floatingActionButton = {
@@ -142,7 +139,7 @@ private fun ServerRow(s: Server, onOpen: () -> Unit, onMenu: () -> Unit) {
                 }
                 Text(s.url, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Chip(s.protocol, primary = true)
+                    xyz.devnerd.anmediaplayer.ui.components.ServerStatusBadge(xyz.devnerd.anmediaplayer.data.ServerHealth.status[s.id])
                     if (s.auth) Chip("${s.user}", leading = Icons.Outlined.Lock)
                     Chip(s.parser)
                 }

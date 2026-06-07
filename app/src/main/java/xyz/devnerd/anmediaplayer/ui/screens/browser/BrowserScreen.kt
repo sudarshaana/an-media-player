@@ -90,6 +90,8 @@ private enum class SortBy(val label: String, val icon: ImageVector) {
 
 private val RES = Regex("(2160p|1080p|720p|480p)", RegexOption.IGNORE_CASE)
 private fun resFor(name: String): String? = RES.find(name)?.value
+private val ENC = Regex("(x265|x264|hevc|av1|h\\.?264|h\\.?265|vp9|xvid|divx)", RegexOption.IGNORE_CASE)
+private fun encodingOf(name: String): String? = ENC.find(name)?.value?.uppercase()?.replace(".", "")
 private fun mtimeEpoch(s: String?): Long = s?.replace("-", "")?.toLongOrNull() ?: 0L
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -168,7 +170,10 @@ fun BrowserScreen(
             parts.add("Folder")
         } else {
             e.size?.let { parts.add(fmtSize(it)) }
-            if (e.type == EntryType.VIDEO) e.durSec?.let { parts.add(fmtDur(it)) }
+            if (e.type == EntryType.VIDEO) {
+                e.durSec?.let { parts.add(fmtDur(it)) }
+                encodingOf(e.name)?.let { parts.add(it) }
+            }
             if (e.type == EntryType.SUBTITLE) parts.add("Subtitle")
             if (e.type == EntryType.IMAGE) parts.add("Image")
         }
@@ -287,10 +292,10 @@ fun BrowserScreen(
                         val pct = if (isVid && e.durSec != null) getProgress(key).toFloat() / e.durSec * 100 else 0f
                         val np = if (isVid) prettyName(e.name) else null
                         val label = if (e.isDir) cleanTitle(e.name) else (np?.primary ?: e.name)
-                        val sub = when {
-                            e.isDir -> "Folder"
-                            np?.secondary?.isNotBlank() == true -> np.secondary
-                            else -> e.durSec?.let { fmtDur(it) } ?: ""
+                        val sub = if (e.isDir) {
+                            fileMeta(e)
+                        } else {
+                            listOfNotNull(e.size?.let { fmtSize(it) }, encodingOf(e.name), e.mtime?.let { fmtDate(it) }).joinToString("  ·  ")
                         }
                         val thumb = when {
                             e.isDir -> rememberFolderThumb(serverId, path + e.name)

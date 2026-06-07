@@ -87,19 +87,34 @@ fun Poster(
             modifier = Modifier.align(Alignment.TopStart).padding(12.dp),
         )
 
+        // No real image → stylized title text effect, centered.
+        if (imageUrl == null && label != null) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.W800),
+                color = Color.White,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.align(Alignment.Center).padding(horizontal = 12.dp),
+            )
+        }
+
         if (label != null) {
             Column(
                 Modifier
                     .align(Alignment.BottomStart)
                     .padding(start = 12.dp, end = 12.dp, bottom = 10.dp),
             ) {
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = Color.White,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                if (imageUrl != null) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = Color.White,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
                 if (sub != null) {
                     Text(
                         text = sub,

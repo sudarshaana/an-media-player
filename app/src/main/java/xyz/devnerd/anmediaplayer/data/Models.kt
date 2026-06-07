@@ -38,6 +38,7 @@ data class ContinueItem(
     val title: String,
     val sub: String,
     val kind: String,
+    val coverUrl: String? = null,
 ) {
     val key: String get() = "$server|${(path + file).joinToString("/")}"
 }

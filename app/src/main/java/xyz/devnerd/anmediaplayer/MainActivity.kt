@@ -1,8 +1,8 @@
 package xyz.devnerd.anmediaplayer
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -12,7 +12,7 @@ import xyz.devnerd.anmediaplayer.ui.App
 import xyz.devnerd.anmediaplayer.ui.screens.settings.SettingsActions
 import xyz.devnerd.anmediaplayer.ui.theme.AnMediaPlayerTheme
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()

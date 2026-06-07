@@ -36,7 +36,7 @@ import androidx.compose.material.icons.outlined.Wifi
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LargeTopAppBar
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
@@ -80,10 +80,9 @@ data class SettingsActions(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(settings: AppSettings, actions: SettingsActions, modifier: Modifier = Modifier) {
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     Scaffold(
-        modifier = modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = { LargeTopAppBar(title = { Text("Settings") }, scrollBehavior = scrollBehavior) },
+        modifier = modifier.fillMaxSize(),
+        topBar = { TopAppBar(title = { Text("Settings") }) },
     ) { inner ->
         LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(top = inner.calculateTopPadding(), bottom = 32.dp)) {
             item {

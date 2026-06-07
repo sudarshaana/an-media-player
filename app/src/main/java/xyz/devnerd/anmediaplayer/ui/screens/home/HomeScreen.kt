@@ -68,24 +68,9 @@ fun HomeScreen(
             .padding(bottom = 24.dp),
     ) {
         // header
-        Row(
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text("Good evening", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-                Text("Watch", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onSurface)
-            }
-            Box(
-                Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                    .clickable(onClick = onOpenConnect),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(Icons.Outlined.Search, "Search", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
-            }
+        Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 4.dp)) {
+            Text(greeting(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+            Text("Watch", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onSurface)
         }
 
         if (cont.isNotEmpty()) {
@@ -113,7 +98,7 @@ fun HomeScreen(
             SectionHead("Your servers", action = "Manage", onAction = onManageServers)
             Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 servers.forEach { s ->
-                    ServerRow(name = s.name, url = s.url, protocol = s.protocol, auth = s.auth, onClick = { onOpenServer(s.id) })
+                    ServerRow(serverId = s.id, name = s.name, url = s.url, auth = s.auth, onClick = { onOpenServer(s.id) })
                 }
             }
         }
@@ -162,6 +147,14 @@ private fun ContinueCard(item: ContinueItem, pct: Int, onClick: () -> Unit) {
                 .clip(RoundedCornerShape(14.dp))
                 .background(coverBrush(item.title)),
         ) {
+            if (item.coverUrl != null) {
+                coil3.compose.AsyncImage(
+                    model = item.coverUrl,
+                    contentDescription = null,
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
             Box(
                 Modifier.fillMaxSize().background(
                     Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.1f), Color.Black.copy(alpha = 0.5f))),
@@ -215,7 +208,7 @@ private fun BookmarkCard(name: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun ServerRow(name: String, url: String, protocol: String, auth: Boolean, onClick: () -> Unit) {
+private fun ServerRow(serverId: String, name: String, url: String, auth: Boolean, onClick: () -> Unit) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         shape = RoundedCornerShape(16.dp),
@@ -233,10 +226,15 @@ private fun ServerRow(name: String, url: String, protocol: String, auth: Boolean
                 Text(url, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             if (auth) Icon(Icons.Outlined.Lock, "Requires sign-in", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(15.dp))
-            Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = RoundedCornerShape(6.dp)) {
-                Text(protocol, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
-            }
+            xyz.devnerd.anmediaplayer.ui.components.ServerStatusBadge(xyz.devnerd.anmediaplayer.data.ServerHealth.status[serverId])
             Icon(Icons.Outlined.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
         }
     }
+}
+
+private fun greeting(): String = when (java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)) {
+    in 5..11 -> "Good morning"
+    in 12..16 -> "Good afternoon"
+    in 17..20 -> "Good evening"
+    else -> "Good night"
 }
