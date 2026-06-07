@@ -55,6 +55,7 @@ import xyz.devnerd.anmediaplayer.data.ContinueItem
 import xyz.devnerd.anmediaplayer.data.Server
 import xyz.devnerd.anmediaplayer.data.cleanTitle
 import xyz.devnerd.anmediaplayer.ui.components.coverBrush
+import xyz.devnerd.anmediaplayer.ui.components.focusHighlight
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -149,7 +150,7 @@ private fun SectionHead(title: String, action: String? = null, onAction: () -> U
 @Composable
 private fun ContinueCard(item: ContinueItem, pct: Int, onClick: () -> Unit) {
     val minsLeft = ((item.durSec - item.posSec) / 60).coerceAtLeast(0)
-    Column(Modifier.width(270.dp).clip(RoundedCornerShape(16.dp)).clickable(onClick = onClick)) {
+    Column(Modifier.width(270.dp).focusHighlight(RoundedCornerShape(16.dp)).clip(RoundedCornerShape(16.dp)).clickable(onClick = onClick)) {
         Box(
             Modifier
                 .fillMaxWidth()
@@ -199,6 +200,7 @@ private fun BookmarkCard(name: String, imageUrl: String?, onClick: () -> Unit) {
         Modifier
             .width(140.dp)
             .aspectRatio(2f / 3f)
+            .focusHighlight(RoundedCornerShape(14.dp))
             .clip(RoundedCornerShape(14.dp))
             .background(coverBrush(name))
             .clickable(onClick = onClick),
@@ -233,7 +235,7 @@ private fun ServerRow(serverId: String, name: String, url: String, auth: Boolean
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         shape = RoundedCornerShape(16.dp),
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable(onClick = onClick),
+        modifier = Modifier.fillMaxWidth().focusHighlight(RoundedCornerShape(16.dp)).clip(RoundedCornerShape(16.dp)).clickable(onClick = onClick),
     ) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             Box(

@@ -46,6 +46,7 @@ import xyz.devnerd.anmediaplayer.data.EntryType
 import xyz.devnerd.anmediaplayer.data.cleanTitle
 import xyz.devnerd.anmediaplayer.ui.components.Poster
 import xyz.devnerd.anmediaplayer.ui.components.coverBrush
+import xyz.devnerd.anmediaplayer.ui.components.focusHighlight
 
 /** Poster hero banner shown atop a media folder (cover image + title overlaid). */
 @Composable
@@ -158,6 +159,7 @@ fun BrowseListRow(
     Row(
         Modifier
             .fillMaxWidth()
+            .focusHighlight(RoundedCornerShape(16.dp))
             .clip(RoundedCornerShape(16.dp))
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(horizontal = 12.dp, vertical = 10.dp),
@@ -219,6 +221,7 @@ fun BrowseGridCard(
         Modifier
             .fillMaxWidth()
             .aspectRatio(2f / 3f)
+            .focusHighlight(RoundedCornerShape(14.dp))
             .clip(RoundedCornerShape(14.dp))
             .background(coverBrush(posterSeed))
             .combinedClickable(onClick = onClick, onLongClick = onLongClick),

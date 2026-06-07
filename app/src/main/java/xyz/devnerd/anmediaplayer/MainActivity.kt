@@ -15,6 +15,8 @@ import xyz.devnerd.anmediaplayer.ui.theme.AnMediaPlayerTheme
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // TVs are fixed-landscape — undo the manifest portrait lock on Leanback devices.
+        if (isTvDevice()) requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         enableEdgeToEdge()
         setContent {
             val vm: SettingsViewModel = viewModel()
@@ -41,5 +43,11 @@ class MainActivity : AppCompatActivity() {
                 )
             }
         }
+    }
+
+    private fun isTvDevice(): Boolean {
+        val ui = getSystemService(android.content.Context.UI_MODE_SERVICE) as android.app.UiModeManager
+        return ui.currentModeType == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION ||
+            packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_LEANBACK)
     }
 }

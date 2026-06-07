@@ -6,6 +6,12 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.focusable
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -292,7 +298,31 @@ fun PlayerScreen(
     val buffered = bufferedPct.coerceIn(pct, 1f)
     val np = PrettyName(title, subtitleLabel)
 
-    Box(Modifier.fillMaxSize().background(Color.Black)) {
+    // D-pad / TV remote handling.
+    val tvFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { tvFocus.requestFocus() } }
+
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+            .focusRequester(tvFocus)
+            .focusable()
+            .onPreviewKeyEvent { ev ->
+                if (ev.type != androidx.compose.ui.input.key.KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                when (ev.key) {
+                    androidx.compose.ui.input.key.Key.DirectionCenter, androidx.compose.ui.input.key.Key.Enter, androidx.compose.ui.input.key.Key.MediaPlayPause -> { togglePlay(); true }
+                    androidx.compose.ui.input.key.Key.MediaPlay -> { exo.play(); poke(); true }
+                    androidx.compose.ui.input.key.Key.MediaPause -> { exo.pause(); poke(); true }
+                    androidx.compose.ui.input.key.Key.MediaFastForward -> { seekBy(10); poke(); true }
+                    androidx.compose.ui.input.key.Key.MediaRewind -> { seekBy(-10); poke(); true }
+                    androidx.compose.ui.input.key.Key.DirectionLeft -> if (!showUI && !locked) { seekBy(-10); seekFx = SeekFx(false, time.toLong()); true } else { poke(); false }
+                    androidx.compose.ui.input.key.Key.DirectionRight -> if (!showUI && !locked) { seekBy(10); seekFx = SeekFx(true, time.toLong()); true } else { poke(); false }
+                    androidx.compose.ui.input.key.Key.DirectionUp, androidx.compose.ui.input.key.Key.DirectionDown -> { poke(); false }
+                    else -> false
+                }
+            },
+    ) {
         // ── video surface (Media3) ──
         val resizeMode = when (resize) {
             "fill" -> AspectRatioFrameLayout.RESIZE_MODE_FILL
