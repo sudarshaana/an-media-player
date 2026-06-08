@@ -44,6 +44,7 @@ import xyz.devnerd.anmediaplayer.ui.screens.settings.SettingsActions
 import xyz.devnerd.anmediaplayer.ui.screens.settings.SettingsScreen
 
 private const val ROUTE_CONNECT = "connect"
+private const val ROUTE_EDIT = "edit"
 private const val ROUTE_SUGGESTED = "suggested"
 
 private fun browseRoute(server: String, path: List<String>): String {
@@ -135,6 +136,7 @@ fun App(
                 ServersScreen(
                     modifier = Modifier.fillMaxSize(),
                     onAddServer = { navController.navigate(ROUTE_CONNECT) },
+                    onEditServer = { navController.navigate("$ROUTE_EDIT/$it") },
                     onFindServers = { navController.navigate(ROUTE_SUGGESTED) },
                     onOpenServer = { navController.navigate(browseRoute(it, emptyList())) },
                 )
@@ -166,6 +168,19 @@ fun App(
                         }
                     },
                 )
+            }
+            composable("$ROUTE_EDIT/{id}") { entry ->
+                val id = entry.arguments?.getString("id")
+                val server = id?.let { AppRepo.serverById(it) }
+                if (server == null) {
+                    androidx.compose.runtime.LaunchedEffect(Unit) { navController.popBackStack() }
+                } else {
+                    ConnectScreen(
+                        editServer = server,
+                        onClose = { navController.popBackStack() },
+                        onConnected = { navController.popBackStack() },
+                    )
+                }
             }
             composable("browse/{server}/{path}") { entry ->
                 val server = entry.arguments?.getString("server") ?: "home"

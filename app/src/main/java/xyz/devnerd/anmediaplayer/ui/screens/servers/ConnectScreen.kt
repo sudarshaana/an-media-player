@@ -74,11 +74,13 @@ fun ConnectScreen(
     onClose: () -> Unit,
     onConnected: (serverId: String) -> Unit,
     modifier: Modifier = Modifier,
+    editServer: Server? = null,
 ) {
-    var url by remember { mutableStateOf("http://") }
-    var needAuth by remember { mutableStateOf(false) }
-    var user by remember { mutableStateOf("") }
-    var pass by remember { mutableStateOf("") }
+    val editing = editServer != null
+    var url by remember { mutableStateOf(editServer?.url ?: "http://") }
+    var needAuth by remember { mutableStateOf(editServer?.auth ?: false) }
+    var user by remember { mutableStateOf(editServer?.user ?: "") }
+    var pass by remember { mutableStateOf(editServer?.password ?: "") }
     var showPass by remember { mutableStateOf(false) }
     var connecting by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -90,7 +92,7 @@ fun ConnectScreen(
         modifier = modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
-                title = { Text("Add server") },
+                title = { Text(if (editing) "Edit server" else "Add server") },
                 windowInsets = androidx.compose.foundation.layout.WindowInsets(0),
                 navigationIcon = {
                     IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") }
@@ -181,7 +183,7 @@ fun ConnectScreen(
                     if (connecting) return@Button
                     connecting = true
                     scope.launch {
-                        val server = buildServer(url, proto, parser, needAuth, user, pass)
+                        val server = buildServer(url, proto, parser, needAuth, user, pass, editServer)
                         AppRepo.addServer(server)
                         kotlinx.coroutines.delay(400)
                         onConnected(server.id)
@@ -192,14 +194,15 @@ fun ConnectScreen(
             ) {
                 if (connecting) {
                     CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
-                    Text("  Connecting…")
+                    Text(if (editing) "  Saving…" else "  Connecting…")
                 } else {
                     Icon(Icons.Outlined.Link, null, modifier = Modifier.size(18.dp))
-                    Text("  Connect")
+                    Text(if (editing) "  Save" else "  Connect")
                 }
             }
 
             // saved
+            if (!editing) {
             Text("SAVED", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 4.dp))
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 AppRepo.servers.forEach { s ->
@@ -219,16 +222,17 @@ fun ConnectScreen(
                     }
                 }
             }
+            }
         }
     }
 }
 
-private fun buildServer(url: String, proto: String?, parser: String?, auth: Boolean, user: String, pass: String): Server {
+private fun buildServer(url: String, proto: String?, parser: String?, auth: Boolean, user: String, pass: String, existing: Server? = null): Server {
     val clean = url.trim()
     val host = runCatching { java.net.URI(clean).host }.getOrNull()
         ?: clean.substringAfter("://").substringBefore('/').ifBlank { "Server" }
     return Server(
-        id = "srv_" + Integer.toHexString(clean.hashCode()),
+        id = existing?.id ?: ("srv_" + Integer.toHexString(clean.hashCode())),
         name = host,
         url = clean,
         protocol = proto ?: "HTTP",
@@ -236,7 +240,7 @@ private fun buildServer(url: String, proto: String?, parser: String?, auth: Bool
         user = user.ifBlank { null },
         password = pass.ifBlank { null },
         parser = parser ?: "auto",
-        lastUsed = "",
-        favorite = false,
+        lastUsed = existing?.lastUsed ?: "",
+        favorite = existing?.favorite ?: false,
     )
 }

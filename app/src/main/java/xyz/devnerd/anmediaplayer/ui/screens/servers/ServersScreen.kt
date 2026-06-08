@@ -68,6 +68,7 @@ fun ServersScreen(
     modifier: Modifier = Modifier,
     onOpenServer: (String) -> Unit = {},
     onAddServer: () -> Unit = {},
+    onEditServer: (String) -> Unit = {},
     onFindServers: () -> Unit = {},
 ) {
     val servers = AppRepo.servers
@@ -120,7 +121,7 @@ fun ServersScreen(
             server = server,
             onDismiss = { menuFor = null },
             onOpen = { onOpenServer(server.id); menuFor = null },
-            onEdit = { menuFor = null },
+            onEdit = { onEditServer(server.id); menuFor = null },
             onCopy = {
                 copyToClipboard(ctx, server.url)
                 Toast.makeText(ctx, "Address copied", Toast.LENGTH_SHORT).show()

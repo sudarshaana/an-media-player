@@ -62,9 +62,14 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -212,20 +217,31 @@ fun BrowserScreen(
     }
 
     // Scroll-aware bottom nav: shown by default + at the top, hides while scrolling
-    // down, reappears on scroll up. Hoisted list/grid states drive it by direction
-    // (robust against fling momentum, unlike raw scroll-delta sniffing).
+    // down, reappears on scroll up. Driven by ACTUAL user scroll deltas via
+    // nestedScroll — NOT firstVisibleItem offset. Toggling the bar changes content
+    // padding, which reflows the list; reading the reflowed offset re-fired the
+    // toggle and shook the list at the edges. nestedScroll sees only real drag/fling
+    // deltas (reflow produces none), so the feedback loop is gone.
     val navCb by androidx.compose.runtime.rememberUpdatedState(onNavVisible)
     val listState = rememberLazyListState()
     val gridState = rememberLazyGridState()
-    val activeIndex = if (grid) gridState.firstVisibleItemIndex else listState.firstVisibleItemIndex
-    val activeOffset = if (grid) gridState.firstVisibleItemScrollOffset else listState.firstVisibleItemScrollOffset
-    var prevIndex by remember { mutableIntStateOf(0) }
-    var prevOffset by remember { mutableIntStateOf(0) }
-    LaunchedEffect(activeIndex, activeOffset) {
-        val atTop = activeIndex == 0 && activeOffset < 8
-        val scrolledUp = activeIndex < prevIndex || (activeIndex == prevIndex && activeOffset < prevOffset)
-        navCb(atTop || scrolledUp)
-        prevIndex = activeIndex; prevOffset = activeOffset
+    val navScroll = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                val dy = available.y
+                if (dy < -2f) navCb(false)      // content moves up = scrolling toward end → hide
+                else if (dy > 2f) navCb(true)   // content moves down = scrolling toward top → show
+                return Offset.Zero
+            }
+        }
+    }
+    // Always reveal the bar when parked at the absolute top (stable: offset is 0,
+    // so no reflow ambiguity here).
+    LaunchedEffect(grid) {
+        snapshotFlow {
+            if (grid) gridState.firstVisibleItemIndex == 0 && gridState.firstVisibleItemScrollOffset == 0
+            else listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0
+        }.collect { if (it) navCb(true) }
     }
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -271,7 +287,7 @@ fun BrowserScreen(
             }
         },
     ) { inner ->
-        Column(Modifier.fillMaxSize().padding(inner)) {
+        Column(Modifier.fillMaxSize().padding(inner).nestedScroll(navScroll)) {
             if (navPattern == NavPattern.BREADCRUMB && !searching) {
                 Breadcrumb(serverName = server?.name ?: "", path = path, onJump = { i -> onOpenFolder(serverId, path.take(i)) })
             }
