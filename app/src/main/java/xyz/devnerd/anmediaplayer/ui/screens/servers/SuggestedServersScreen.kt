@@ -71,6 +71,8 @@ import xyz.devnerd.anmediaplayer.data.IspInfo
 import xyz.devnerd.anmediaplayer.data.IspServer
 import xyz.devnerd.anmediaplayer.data.Server
 import xyz.devnerd.anmediaplayer.data.UrlReach
+import xyz.devnerd.anmediaplayer.ui.components.LocalIsTv
+import xyz.devnerd.anmediaplayer.ui.components.focusHighlight
 
 enum class Phase { DETECTING, READY }
 
@@ -160,6 +162,7 @@ fun SuggestedServersScreen(
     modifier: Modifier = Modifier,
 ) {
     val ctx = LocalContext.current
+    val isTv = LocalIsTv.current
     val vm: SuggestedViewModel = viewModel()
     LaunchedEffect(Unit) { vm.start() }
 
@@ -175,7 +178,7 @@ fun SuggestedServersScreen(
                 title = { Text("Suggested servers") },
                 windowInsets = androidx.compose.foundation.layout.WindowInsets(0),
                 navigationIcon = {
-                    IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") }
+                    IconButton(onClick = onClose, modifier = Modifier.focusHighlight(CircleShape)) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") }
                 },
             )
         },
@@ -190,8 +193,9 @@ fun SuggestedServersScreen(
             return@Scaffold
         }
 
+        Column(Modifier.fillMaxSize().padding(inner)) {
         LazyColumn(
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = inner.calculateTopPadding() + 4.dp, bottom = 96.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 96.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             item { IspHeader(vm.isp) }
@@ -210,13 +214,13 @@ fun SuggestedServersScreen(
             item {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (vm.matched.isNotEmpty()) {
-                        FilterChip(selected = !vm.showAll, onClick = { vm.showAll = false }, label = { Text("Matched (${vm.matched.size})") })
+                        FilterChip(selected = !vm.showAll, onClick = { vm.showAll = false }, label = { Text("Matched (${vm.matched.size})") }, modifier = Modifier.focusHighlight(RoundedCornerShape(8.dp)))
                     }
-                    FilterChip(selected = vm.showAll, onClick = { vm.showAll = true }, label = { Text("All providers") })
+                    FilterChip(selected = vm.showAll, onClick = { vm.showAll = true }, label = { Text("All providers") }, modifier = Modifier.focusHighlight(RoundedCornerShape(8.dp)))
                 }
             }
 
-            if (vm.showAll) {
+            if (vm.showAll && !isTv) {
                 item {
                     OutlinedTextField(
                         value = vm.query,
@@ -245,7 +249,7 @@ fun SuggestedServersScreen(
                         )
                     }
                 } else {
-                    FilledTonalButton(onClick = { vm.startScan(shown) }, modifier = Modifier.fillMaxWidth(), enabled = shown.isNotEmpty()) {
+                    FilledTonalButton(onClick = { vm.startScan(shown) }, modifier = Modifier.fillMaxWidth().focusHighlight(RoundedCornerShape(20.dp)), enabled = shown.isNotEmpty()) {
                         Icon(Icons.Outlined.TravelExplore, null, modifier = Modifier.size(18.dp))
                         Text("  Test all (${shown.size})")
                     }
@@ -275,6 +279,7 @@ fun SuggestedServersScreen(
                     },
                 )
             }
+        }
         }
     }
 }
@@ -314,10 +319,18 @@ private fun IspCard(
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         shape = RoundedCornerShape(18.dp),
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).clickable(onClick = onToggle),
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)),
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .focusHighlight(RoundedCornerShape(12.dp))
+                    .clickable(onClick = onToggle),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
                 Box(
                     Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.primaryContainer),
                     contentAlignment = Alignment.Center,
@@ -345,7 +358,7 @@ private fun IspCard(
                     Button(
                         onClick = onAddAll,
                         enabled = onlineCount > 0,
-                        modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                        modifier = Modifier.fillMaxWidth().padding(top = 6.dp).focusHighlight(RoundedCornerShape(20.dp)),
                     ) { Text(if (onlineCount > 0) "Add to server list ($onlineCount accessible)" else "No accessible address") }
                 }
             }
@@ -395,11 +408,11 @@ private fun UrlRow(url: String, online: Boolean?, checking: Boolean, onBrowse: (
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = onBrowse, enabled = enabled, modifier = Modifier.weight(1f)) {
+            OutlinedButton(onClick = onBrowse, enabled = enabled, modifier = Modifier.weight(1f).focusHighlight(RoundedCornerShape(20.dp))) {
                 Icon(Icons.Outlined.PlayArrow, null, modifier = Modifier.size(16.dp))
                 Text("  Browse")
             }
-            FilledTonalButton(onClick = onAdd, enabled = enabled, modifier = Modifier.weight(1f)) {
+            FilledTonalButton(onClick = onAdd, enabled = enabled, modifier = Modifier.weight(1f).focusHighlight(RoundedCornerShape(20.dp))) {
                 Text("Add to server")
             }
         }

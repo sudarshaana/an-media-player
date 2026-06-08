@@ -32,6 +32,7 @@ import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material.icons.outlined.TravelExplore
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
@@ -41,6 +42,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -54,6 +56,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import xyz.devnerd.anmediaplayer.data.AppRepo
@@ -91,14 +94,24 @@ fun ServersScreen(
             )
         },
     ) { inner ->
-        LazyColumn(
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = inner.calculateTopPadding() + 4.dp, bottom = 96.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            items(servers, key = { it.id }) { s ->
-                ServerRow(s = s, onOpen = { onOpenServer(s.id) }, onMenu = { menuFor = s })
+        if (servers.isEmpty()) {
+            EmptyState(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = inner.calculateTopPadding()),
+                onFindServers = onFindServers,
+                onAddServer = onAddServer,
+            )
+        } else {
+            LazyColumn(
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = inner.calculateTopPadding() + 4.dp, bottom = 96.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                items(servers, key = { it.id }) { s ->
+                    ServerRow(s = s, onOpen = { onOpenServer(s.id) }, onMenu = { menuFor = s })
+                }
+                item { HintCard() }
             }
-            item { HintCard() }
         }
     }
 
@@ -161,6 +174,53 @@ private fun Chip(text: String, primary: Boolean = false, leading: ImageVector? =
         Row(Modifier.padding(horizontal = 8.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             if (leading != null) Icon(leading, null, tint = fg, modifier = Modifier.size(11.dp))
             Text(text, style = MaterialTheme.typography.labelSmall, color = fg)
+        }
+    }
+}
+
+@Composable
+private fun EmptyState(
+    modifier: Modifier = Modifier,
+    onFindServers: () -> Unit,
+    onAddServer: () -> Unit,
+) {
+    Column(
+        modifier = modifier.padding(horizontal = 32.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            Modifier.size(72.dp).clip(RoundedCornerShape(22.dp)).background(MaterialTheme.colorScheme.primaryContainer),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Outlined.Dns, null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(34.dp))
+        }
+        Text(
+            "No servers yet",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(top = 20.dp),
+        )
+        Text(
+            "Pick a free ISP (BDIX) server for your network, or add your own address.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 6.dp),
+        )
+        Button(
+            onClick = onFindServers,
+            modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
+        ) {
+            Icon(Icons.Outlined.TravelExplore, null, modifier = Modifier.size(18.dp))
+            Text("Find servers for my ISP", modifier = Modifier.padding(start = 8.dp))
+        }
+        TextButton(
+            onClick = onAddServer,
+            modifier = Modifier.padding(top = 4.dp),
+        ) {
+            Icon(Icons.Outlined.Add, null, modifier = Modifier.size(18.dp))
+            Text("Add address manually", modifier = Modifier.padding(start = 8.dp))
         }
     }
 }
