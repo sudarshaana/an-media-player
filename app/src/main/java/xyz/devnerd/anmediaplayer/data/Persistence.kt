@@ -248,6 +248,17 @@ object MediaRepo {
         val img = entries.firstOrNull { it.type == EntryType.IMAGE } ?: return null
         return http.fileUrl(s, path, img.name)
     }
+
+    /** Poster for a media file's folder: image in its folder, else walk up parents. */
+    suspend fun posterUrl(serverId: String, path: List<String>, levelsUp: Int = 1): String? {
+        var p = path
+        var up = 0
+        while (true) {
+            firstImageUrl(serverId, p)?.let { return it }
+            if (p.isEmpty() || up >= levelsUp) return null
+            p = p.dropLast(1); up++
+        }
+    }
 }
 
 /** Lazy cache of folder cover-image URLs (snapshot-backed for Compose). */
@@ -296,8 +307,17 @@ object DownloadsStore {
         if (url.isBlank()) return
         if (items.any { it.file == file && it.state != DownloadState.FAILED }) return
         val id = "dl_${(server + path.joinToString("/") + file).hashCode()}"
-        items.add(Download(id, title, sub, file, size, DownloadState.QUEUED, 0, null, server, path, durSec, url, 0, null, destDir))
+        items.add(Download(id, title, sub, file, size, DownloadState.QUEUED, 0, 0L, server, path, durSec, url, 0, null, destDir))
         persist(); start(id)
+        // Resolve a poster (folder image, walking up to the show root) for the list thumbnail.
+        scope.launch { MediaRepo.posterUrl(server, path)?.let { updateCover(id, it) } }
+    }
+
+    private fun updateCover(id: String, coverUrl: String) {
+        val i = items.indexOfFirst { it.id == id }
+        if (i < 0) return
+        items[i] = items[i].copy(coverUrl = coverUrl)
+        persist()
     }
 
     fun pause(id: String) { jobs.remove(id)?.cancel(); update(id, DownloadState.PAUSED) }
@@ -354,7 +374,7 @@ object DownloadsStore {
                     doc.uri.toString()
                 }.getOrNull()
             } ?: android.net.Uri.fromFile(out).toString()
-            update(id, DownloadState.DONE, 100, "Just now", localUri = finalUri, downloadedBytes = d.size)
+            update(id, DownloadState.DONE, 100, System.currentTimeMillis(), localUri = finalUri, downloadedBytes = d.size)
         }
     }
 
@@ -364,14 +384,14 @@ object DownloadsStore {
         else -> "application/octet-stream"
     }
 
-    private fun update(id: String, state: DownloadState, progress: Int? = null, whenLabel: String? = null, localUri: String? = null, downloadedBytes: Long? = null) {
+    private fun update(id: String, state: DownloadState, progress: Int? = null, completedAt: Long? = null, localUri: String? = null, downloadedBytes: Long? = null) {
         val i = items.indexOfFirst { it.id == id }
         if (i < 0) return
         val prev = items[i]
         items[i] = prev.copy(
             state = state,
             progress = progress ?: prev.progress,
-            whenLabel = whenLabel ?: prev.whenLabel,
+            completedAt = completedAt ?: prev.completedAt,
             localUri = localUri ?: prev.localUri,
             downloadedBytes = downloadedBytes ?: prev.downloadedBytes,
         )
@@ -397,8 +417,8 @@ object DownloadsStore {
             put(JSONObject().apply {
                 put("id", d.id); put("title", d.title); put("sub", d.sub); put("file", d.file)
                 put("size", d.size); put("state", d.state.name); put("progress", d.progress ?: JSONObject.NULL)
-                put("whenLabel", d.whenLabel ?: JSONObject.NULL); put("server", d.server); put("path", JSONArray(d.path))
-                put("durSec", d.durSec); put("url", d.url); put("downloadedBytes", d.downloadedBytes); put("localUri", d.localUri ?: JSONObject.NULL); put("destDir", d.destDir ?: JSONObject.NULL)
+                put("completedAt", d.completedAt); put("server", d.server); put("path", JSONArray(d.path))
+                put("durSec", d.durSec); put("url", d.url); put("downloadedBytes", d.downloadedBytes); put("localUri", d.localUri ?: JSONObject.NULL); put("destDir", d.destDir ?: JSONObject.NULL); put("coverUrl", d.coverUrl ?: JSONObject.NULL)
             })
         }
     }.toString()
@@ -415,10 +435,11 @@ object DownloadsStore {
                     o.getString("id"), o.getString("title"), o.getString("sub"), o.getString("file"),
                     o.getLong("size"), DownloadState.valueOf(o.getString("state")),
                     if (o.isNull("progress")) null else o.getInt("progress"),
-                    o.optString("whenLabel").ifBlank { null }, o.getString("server"), path, o.getInt("durSec"),
+                    o.optLong("completedAt", 0), o.getString("server"), path, o.getInt("durSec"),
                     o.optString("url"), o.optLong("downloadedBytes", 0),
                     o.optString("localUri").ifBlank { null },
                     o.optString("destDir").ifBlank { null },
+                    o.optString("coverUrl").ifBlank { null },
                 )
             }
         }.getOrDefault(emptyList())

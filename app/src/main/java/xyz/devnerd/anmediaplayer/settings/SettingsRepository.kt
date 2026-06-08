@@ -81,6 +81,8 @@ data class AppSettings(
     /** Last-used directory sort. Default: newest first. */
     val sortKey: String = "date",
     val sortAsc: Boolean = false,
+    /** First-run browser tips (phone only) shown once. */
+    val browserTipsSeen: Boolean = false,
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -102,6 +104,7 @@ class SettingsRepository(private val context: Context) {
         val DOWNLOAD_DIR = stringPreferencesKey("download_dir")
         val SORT_KEY = stringPreferencesKey("sort_key")
         val SORT_ASC = booleanPreferencesKey("sort_asc")
+        val BROWSER_TIPS_SEEN = booleanPreferencesKey("browser_tips_seen")
     }
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { prefs ->
@@ -120,6 +123,7 @@ class SettingsRepository(private val context: Context) {
             downloadDir = prefs[Keys.DOWNLOAD_DIR],
             sortKey = prefs[Keys.SORT_KEY] ?: "date",
             sortAsc = prefs[Keys.SORT_ASC] ?: false,
+            browserTipsSeen = prefs[Keys.BROWSER_TIPS_SEEN] ?: false,
         )
     }
 
@@ -173,5 +177,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setSort(key: String, asc: Boolean) {
         context.dataStore.edit { it[Keys.SORT_KEY] = key; it[Keys.SORT_ASC] = asc }
+    }
+
+    suspend fun setBrowserTipsSeen(seen: Boolean) {
+        context.dataStore.edit { it[Keys.BROWSER_TIPS_SEEN] = seen }
     }
 }

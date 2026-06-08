@@ -17,6 +17,19 @@ fun fmtSize(bytes: Long?): String {
     return "$v ${UNITS[i]}"
 }
 
+/** Relative "x ago" label from an epoch-millis timestamp; falls back to "Saved" if unset. */
+fun relativeTime(epochMillis: Long, now: Long = System.currentTimeMillis()): String {
+    if (epochMillis <= 0) return "Saved"
+    val s = ((now - epochMillis) / 1000).coerceAtLeast(0)
+    return when {
+        s < 60 -> "Just now"
+        s < 3600 -> "${s / 60}m ago"
+        s < 86400 -> "${s / 3600}h ago"
+        s < 604800 -> "${s / 86400}d ago"
+        else -> PRETTY.format(java.util.Date(epochMillis))
+    }
+}
+
 private val ISO = SimpleDateFormat("yyyy-MM-dd", Locale.US)
 private val PRETTY = SimpleDateFormat("MMM d, yyyy", Locale.US)
 

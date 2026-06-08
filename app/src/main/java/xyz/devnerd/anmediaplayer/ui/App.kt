@@ -125,6 +125,7 @@ fun App(
                     bookmarks = AppRepo.bookmarks,
                     onOpenConnect = { navController.navigate(ROUTE_CONNECT) },
                     onManageServers = { navController.switchTab(TopDest.SERVERS.route) },
+                    onFindServers = { navController.navigate(ROUTE_SUGGESTED) },
                     onOpenBrowse = { server, path -> navController.navigate(browseRoute(server, path)) },
                     onOpenServer = { navController.navigate(browseRoute(it, emptyList())) },
                     onPlay = { item -> playback = PlaybackRequest(item.server, item.path, item.file, item.durSec) },
@@ -141,12 +142,10 @@ fun App(
             composable(TopDest.DOWNLOADS.route) {
                 DownloadsScreen(
                     modifier = Modifier.fillMaxSize(),
-                    wifiOnly = settings.wifiOnly,
                     onPlay = { d ->
                         playback = if (d.localUri != null) PlaybackRequest(d.server, d.path, d.file, d.durSec, directUrl = d.localUri)
                         else PlaybackRequest(d.server, d.path, d.file, d.durSec)
                     },
-                    onManage = { navController.switchTab(TopDest.SETTINGS.route) },
                 )
             }
             composable(TopDest.SETTINGS.route) {
@@ -194,6 +193,8 @@ fun App(
                     },
                     onSetView = { g -> settingsActions.onBrowseView(if (g) BrowseView.GRID else BrowseView.LIST) },
                     onNavVisible = { navVisible = it },
+                    showTips = !settings.browserTipsSeen,
+                    onTipsSeen = settingsActions.onBrowserTipsSeen,
                     onPlayEpisode = { pl, start -> playback = PlaybackRequest(server, start.path, start.file, start.durSec, playlist = pl) },
                     onUp = { navController.popBackStack() },
                 )

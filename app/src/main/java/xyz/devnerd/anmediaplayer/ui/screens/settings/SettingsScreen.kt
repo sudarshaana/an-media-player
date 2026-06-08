@@ -32,7 +32,6 @@ import androidx.compose.material.icons.outlined.PlayCircle
 import androidx.compose.material.icons.outlined.SkipNext
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.Storage
-import androidx.compose.material.icons.outlined.Wifi
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -79,6 +78,7 @@ data class SettingsActions(
     val onAppLock: (Boolean) -> Unit = {},
     val onDownloadDir: (String?) -> Unit = {},
     val onSetSort: (String, Boolean) -> Unit = { _, _ -> },
+    val onBrowserTipsSeen: () -> Unit = {},
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -145,10 +145,6 @@ fun SettingsScreen(settings: AppSettings, actions: SettingsActions, modifier: Mo
             }
             item {
                 SettingGroup("DOWNLOADS & DATA") {
-                    RowInline(Icons.Outlined.Wifi, "Download on Wi-Fi only") {
-                        Switch(checked = settings.wifiOnly, onCheckedChange = actions.onWifiOnly)
-                    }
-                    Div()
                     RowInline(Icons.Outlined.Download, "Download location", downloadDirLabel(settings.downloadDir), onClick = { pickDir.launch(null) }) {
                         Icon(Icons.Outlined.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }

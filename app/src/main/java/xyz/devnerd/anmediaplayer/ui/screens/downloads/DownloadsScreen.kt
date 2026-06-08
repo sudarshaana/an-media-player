@@ -33,9 +33,7 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Pause
-import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material.icons.outlined.Wifi
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -43,7 +41,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -63,8 +60,10 @@ import xyz.devnerd.anmediaplayer.data.Download
 import xyz.devnerd.anmediaplayer.data.DownloadState
 import xyz.devnerd.anmediaplayer.data.DownloadsStore
 import xyz.devnerd.anmediaplayer.data.fmtSize
+import xyz.devnerd.anmediaplayer.data.relativeTime
 import xyz.devnerd.anmediaplayer.ui.components.coverBrush
 import xyz.devnerd.anmediaplayer.ui.components.focusHighlight
+import xyz.devnerd.anmediaplayer.ui.components.rememberMediaPoster
 
 private enum class DlFilter(val label: String, val match: (DownloadState) -> Boolean) {
     ALL("All", { true }),
@@ -78,17 +77,13 @@ private enum class DlFilter(val label: String, val match: (DownloadState) -> Boo
 @Composable
 fun DownloadsScreen(
     modifier: Modifier = Modifier,
-    wifiOnly: Boolean = true,
     onPlay: (Download) -> Unit = {},
-    onManage: () -> Unit = {},
 ) {
     val ctx = LocalContext.current
     val items = DownloadsStore.items
     var filter by remember { mutableStateOf(DlFilter.ALL) }
     var removing by remember { mutableStateOf<Download?>(null) }
 
-    val done = items.filter { it.state == DownloadState.DONE }
-    val used = done.sumOf { it.size }
     val shown = items.asReversed().filter { filter.match(it.state) }
 
     Scaffold(
@@ -97,19 +92,6 @@ fun DownloadsScreen(
     ) { inner ->
         Column(Modifier.fillMaxSize().padding(top = inner.calculateTopPadding())) {
         LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 28.dp)) {
-            item {
-                Row(
-                    Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceContainerLow).padding(horizontal = 14.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Icon(if (wifiOnly) Icons.Outlined.Wifi else Icons.Outlined.Public, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(if (wifiOnly) "Wi-Fi only" else "Wi-Fi & mobile data", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
-                        Text("${fmtSize(used)} used · ${done.size} items offline", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    TextButton(onClick = onManage, modifier = Modifier.focusHighlight(RoundedCornerShape(12.dp))) { Text("Manage") }
-                }
-            }
             item {
                 LazyRow(contentPadding = PaddingValues(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(DlFilter.entries.size) { i ->
@@ -169,11 +151,22 @@ private val GreenMark = Color(0xFF2E9E4F)
 private val RedMark = Color(0xFFD7263D)
 
 @Composable
-private fun Thumb(file: String, state: DownloadState) {
-    Box(Modifier.width(56.dp).height(35.dp).clip(RoundedCornerShape(10.dp)).background(coverBrush(file)), contentAlignment = Alignment.Center) {
-        Icon(Icons.Outlined.Movie, null, tint = Color.White.copy(alpha = 0.92f), modifier = Modifier.size(20.dp))
+private fun Thumb(d: Download) {
+    // Persisted cover (resolved at enqueue); fall back to a live walk-up for older items.
+    val cover = d.coverUrl ?: rememberMediaPoster(d.server, d.path)
+    Box(Modifier.width(56.dp).height(35.dp).clip(RoundedCornerShape(10.dp)).background(coverBrush(d.file)), contentAlignment = Alignment.Center) {
+        if (cover != null) {
+            coil3.compose.AsyncImage(
+                model = cover,
+                contentDescription = null,
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        } else {
+            Icon(Icons.Outlined.Movie, null, tint = Color.White.copy(alpha = 0.92f), modifier = Modifier.size(20.dp))
+        }
         // Corner status mark: green when downloaded, red when failed.
-        when (state) {
+        when (d.state) {
             DownloadState.DONE -> StatusMark(GreenMark, Icons.Filled.Check)
             DownloadState.FAILED -> StatusMark(RedMark, Icons.Filled.PriorityHigh)
             else -> {}
@@ -202,14 +195,14 @@ private fun DownloadRow(d: Download, onPlay: () -> Unit, onPause: () -> Unit, on
         Modifier.fillMaxWidth().then(if (playable) Modifier.focusHighlight(RoundedCornerShape(16.dp)) else Modifier).clip(RoundedCornerShape(16.dp)).then(if (playable) Modifier.combinedClickable(onClick = onPlay, onLongClick = onRemove) else Modifier).padding(horizontal = 8.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Thumb(d.file, d.state)
+        Thumb(d)
         Column(Modifier.weight(1f)) {
             Text(d.title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
             val p = d.progress ?: 0
             when (d.state) {
                 DownloadState.DONE -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 2.dp)) {
                     Icon(Icons.Outlined.CheckCircle, null, tint = GreenMark, modifier = Modifier.size(13.dp))
-                    Text("${fmtSize(d.size)} · ${d.whenLabel ?: "Saved"}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("${fmtSize(d.size)} · ${relativeTime(d.completedAt)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 DownloadState.FAILED -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 2.dp)) {
                     Icon(Icons.Outlined.ErrorOutline, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(13.dp))

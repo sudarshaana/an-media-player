@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Dns
+import androidx.compose.material.icons.outlined.TravelExplore
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Search
@@ -57,6 +58,7 @@ import xyz.devnerd.anmediaplayer.data.Server
 import xyz.devnerd.anmediaplayer.data.cleanTitle
 import xyz.devnerd.anmediaplayer.ui.components.coverBrush
 import xyz.devnerd.anmediaplayer.ui.components.focusHighlight
+import xyz.devnerd.anmediaplayer.ui.components.rememberMediaPoster
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -68,6 +70,7 @@ fun HomeScreen(
     onOpenServer: (String) -> Unit = {},
     onOpenConnect: () -> Unit = {},
     onManageServers: () -> Unit = {},
+    onFindServers: () -> Unit = {},
 ) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val servers: List<Server> = AppRepo.servers
@@ -134,7 +137,11 @@ fun HomeScreen(
                 Text("No servers yet", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
                 Text("Add a server to browse and play remote media.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 androidx.compose.material3.Button(onClick = onOpenConnect, modifier = Modifier.padding(top = 4.dp)) { Text("Add server") }
-            }
+                androidx.compose.material3.OutlinedButton(onClick = onFindServers) {
+                    Icon(Icons.Outlined.TravelExplore, null, modifier = Modifier.size(18.dp))
+                    Text("Find server for my ISP", modifier = Modifier.padding(start = 8.dp))
+                }
+}
         }
     }
 }
@@ -161,6 +168,8 @@ private fun SectionHead(title: String, action: String? = null, onAction: () -> U
 @Composable
 private fun ContinueCard(item: ContinueItem, pct: Int, offline: Boolean, onClick: () -> Unit) {
     val minsLeft = ((item.durSec - item.posSec) / 60).coerceAtLeast(0)
+    // Series episodes save no sibling cover (poster lives at the show root) → walk up.
+    val cover = item.coverUrl ?: rememberMediaPoster(item.server, item.path)
     Column(Modifier.width(270.dp).focusHighlight(RoundedCornerShape(16.dp)).clip(RoundedCornerShape(16.dp)).clickable(onClick = onClick)) {
         Box(
             Modifier
@@ -169,9 +178,9 @@ private fun ContinueCard(item: ContinueItem, pct: Int, offline: Boolean, onClick
                 .clip(RoundedCornerShape(14.dp))
                 .background(coverBrush(item.title)),
         ) {
-            if (item.coverUrl != null) {
+            if (cover != null) {
                 coil3.compose.AsyncImage(
-                    model = item.coverUrl,
+                    model = cover,
                     contentDescription = null,
                     contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),

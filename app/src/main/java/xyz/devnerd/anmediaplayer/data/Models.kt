@@ -69,6 +69,8 @@ data class Download(
     val localUri: String? = null,
     /** SAF tree URI to move the finished file into. Null = keep in app storage. */
     val destDir: String? = null,
+    /** Poster image URL (resolved from source folder/parent at enqueue), for the list thumbnail. */
+    val coverUrl: String? = null,
 )
 
 data class Bookmark(val server: String, val path: List<String>)

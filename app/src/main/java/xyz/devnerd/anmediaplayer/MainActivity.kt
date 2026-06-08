@@ -39,6 +39,7 @@ class MainActivity : AppCompatActivity() {
                         onAppLock = vm::setAppLock,
                         onDownloadDir = vm::setDownloadDir,
                         onSetSort = vm::setSort,
+                        onBrowserTipsSeen = vm::setBrowserTipsSeen,
                     ),
                 )
             }

@@ -14,10 +14,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -36,7 +38,9 @@ import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SortByAlpha
@@ -62,7 +66,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -114,6 +117,8 @@ fun BrowserScreen(
     onDownload: (Entry) -> Unit = {},
     onSetView: (Boolean) -> Unit = {},
     onNavVisible: (Boolean) -> Unit = {},
+    showTips: Boolean = false,
+    onTipsSeen: () -> Unit = {},
     onPlayEpisode: (List<xyz.devnerd.anmediaplayer.data.EpisodeRef>, xyz.devnerd.anmediaplayer.data.EpisodeRef) -> Unit = { _, _ -> },
     onUp: () -> Unit,
     modifier: Modifier = Modifier,
@@ -206,17 +211,24 @@ fun BrowserScreen(
         }
     }
 
+    // Scroll-aware bottom nav: shown by default + at the top, hides while scrolling
+    // down, reappears on scroll up. Hoisted list/grid states drive it by direction
+    // (robust against fling momentum, unlike raw scroll-delta sniffing).
     val navCb by androidx.compose.runtime.rememberUpdatedState(onNavVisible)
-    val navScroll = remember {
-        object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
-            override fun onPreScroll(available: androidx.compose.ui.geometry.Offset, source: androidx.compose.ui.input.nestedscroll.NestedScrollSource): androidx.compose.ui.geometry.Offset {
-                if (available.y < -6f) navCb(false) else if (available.y > 6f) navCb(true)
-                return androidx.compose.ui.geometry.Offset.Zero
-            }
-        }
+    val listState = rememberLazyListState()
+    val gridState = rememberLazyGridState()
+    val activeIndex = if (grid) gridState.firstVisibleItemIndex else listState.firstVisibleItemIndex
+    val activeOffset = if (grid) gridState.firstVisibleItemScrollOffset else listState.firstVisibleItemScrollOffset
+    var prevIndex by remember { mutableIntStateOf(0) }
+    var prevOffset by remember { mutableIntStateOf(0) }
+    LaunchedEffect(activeIndex, activeOffset) {
+        val atTop = activeIndex == 0 && activeOffset < 8
+        val scrolledUp = activeIndex < prevIndex || (activeIndex == prevIndex && activeOffset < prevOffset)
+        navCb(atTop || scrolledUp)
+        prevIndex = activeIndex; prevOffset = activeOffset
     }
     Scaffold(
-        modifier = modifier.fillMaxSize().nestedScroll(navScroll),
+        modifier = modifier.fillMaxSize(),
         topBar = {
             if (searching) {
                 SearchBar(
@@ -283,7 +295,7 @@ fun BrowserScreen(
                     modifier = Modifier.fillMaxSize(),
                 )
                 entries.isEmpty() -> EmptyState(searching = query.isNotBlank())
-                !grid -> LazyColumn(contentPadding = PaddingValues(start = if (isTv) 32.dp else 8.dp, end = if (isTv) 32.dp else 8.dp, top = 2.dp, bottom = if (isTv) 56.dp else 24.dp)) {
+                !grid -> LazyColumn(state = listState, contentPadding = PaddingValues(start = if (isTv) 32.dp else 8.dp, end = if (isTv) 32.dp else 8.dp, top = 2.dp, bottom = if (isTv) 56.dp else 24.dp)) {
                     if (showHero) item { MediaHero(folderImageUrl, title, heroSub, path.lastOrNull() ?: title) }
                     items(entries.filter { !(showHero && it.name == coverEntry?.name) }, key = { it.name }) { e ->
                         val key = progressKey(serverId, path, e.name)
@@ -315,6 +327,7 @@ fun BrowserScreen(
                 // TV is wide → more columns + overscan-safe padding so the last
                 // row clears the screen edge.
                 else -> LazyVerticalGrid(
+                    state = gridState,
                     columns = GridCells.Fixed(if (isTv) 5 else 2),
                     contentPadding = PaddingValues(start = if (isTv) 32.dp else 16.dp, end = if (isTv) 32.dp else 16.dp, top = if (isTv) 24.dp else 8.dp, bottom = if (isTv) 56.dp else 24.dp),
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -390,6 +403,52 @@ fun BrowserScreen(
     }
 
     imageViewer?.let { url -> ImageViewer(url = url, onClose = { imageViewer = null }) }
+
+    // First-run tips — phone only, shown once. Persist on dismiss.
+    var tipsDismissed by remember { mutableStateOf(false) }
+    if (!isTv && showTips && !tipsDismissed) {
+        BrowserTipsSheet(onDismiss = { tipsDismissed = true; onTipsSeen() })
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BrowserTipsSheet(onDismiss: () -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.padding(horizontal = 24.dp).padding(bottom = 8.dp)) {
+            Text("Quick tips", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
+            Text("A few gestures to get around faster.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp, bottom = 16.dp))
+            TipRow(Icons.Outlined.BookmarkBorder, "Bookmark a folder", "Long-press any folder to pin it to Home.")
+            TipRow(Icons.Outlined.SwapVert, "Sort the list", "Tap the sort button to reorder by name, date, size or type.")
+            TipRow(Icons.Outlined.GridView, "List or grid", "Switch between list and grid view from the top bar.")
+            TipRow(Icons.Outlined.Download, "Download a file", "Tap the ⋮ menu on a file to save it for offline.")
+            TipRow(Icons.Outlined.Palette, "Theme & accent", "Change theme and accent colour in Settings ▸ Appearance.")
+            androidx.compose.material3.Button(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+            ) { Text("Got it") }
+        }
+        Box(Modifier.height(16.dp))
+    }
+}
+
+@Composable
+private fun TipRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, body: String) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Box(
+            Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceContainerHighest),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+        }
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+            Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
