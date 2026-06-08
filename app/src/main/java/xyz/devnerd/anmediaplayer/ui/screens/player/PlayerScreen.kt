@@ -10,6 +10,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
@@ -63,6 +64,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -84,7 +86,11 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import androidx.compose.ui.unit.Dp
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import xyz.devnerd.anmediaplayer.data.PrettyName
 import xyz.devnerd.anmediaplayer.data.fmtDur
 import xyz.devnerd.anmediaplayer.settings.PlayerLayout
@@ -482,7 +488,7 @@ fun PlayerScreen(
         }
         if (!minimal) {
             AnimatedVisibility(showUI, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.Center)) {
-                CenterTransport(playing, hasPrev, hasNext, onPrev, onNext, onBack10 = { seekBy(-10) }, onFwd10 = { seekBy(10) }, onToggle = { togglePlay() }, playFocus = playFocus)
+                CenterTransport(playing, hasPrev, hasNext, onPrev, onNext, onSeek = { seekBy(it) }, onToggle = { togglePlay() }, playFocus = playFocus)
             }
         }
         if (cinema) {
@@ -491,7 +497,7 @@ fun PlayerScreen(
                     np = np, hasPrev = hasPrev, hasNext = hasNext, time = time, duration = duration, pct = pct, buffered = buffered,
                     playing = playing, subOn = subIndex > 0, speed = speed, resizeLabel = resizes.first { it.first == resize }.second,
                     onScrub = { f -> scrubbing = true; time = f * duration }, onScrubEnd = { exo.seekTo((time * 1000).toLong()); scrubbing = false; poke() },
-                    onPrev = onPrev, onNext = onNext, onBack10 = { seekBy(-10) }, onFwd10 = { seekBy(10) }, onToggle = { togglePlay() },
+                    onPrev = onPrev, onNext = onNext, onSeek = { seekBy(it) }, onToggle = { togglePlay() },
                     onSheet = { sheet = it }, onLock = { locked = true; showUI = false },
                 )
             }
@@ -581,10 +587,10 @@ private fun TopChrome(title: String, subtitle: String, cinema: Boolean, onClose:
 }
 
 @Composable
-private fun CenterTransport(playing: Boolean, hasPrev: Boolean, hasNext: Boolean, onPrev: () -> Unit, onNext: () -> Unit, onBack10: () -> Unit, onFwd10: () -> Unit, onToggle: () -> Unit, playFocus: androidx.compose.ui.focus.FocusRequester? = null) {
+private fun CenterTransport(playing: Boolean, hasPrev: Boolean, hasNext: Boolean, onPrev: () -> Unit, onNext: () -> Unit, onSeek: (Int) -> Unit, onToggle: () -> Unit, playFocus: androidx.compose.ui.focus.FocusRequester? = null) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(28.dp)) {
         IconButton(onClick = onPrev, enabled = hasPrev, modifier = Modifier.focusHighlight(CircleShape)) { Icon(Icons.Filled.SkipPrevious, "Previous", tint = if (hasPrev) Color.White else Color.White.copy(alpha = 0.35f), modifier = Modifier.size(30.dp)) }
-        IconButton(onClick = onBack10, modifier = Modifier.focusHighlight(CircleShape)) { Icon(Icons.Outlined.Replay10, "-10s", tint = Color.White, modifier = Modifier.size(34.dp)) }
+        SeekButton(forward = false, tint = Color.White, iconSize = 34.dp, onSeek = onSeek)
         Box(
             Modifier.size(76.dp)
                 .then(if (playFocus != null) Modifier.focusRequester(playFocus) else Modifier)
@@ -595,8 +601,62 @@ private fun CenterTransport(playing: Boolean, hasPrev: Boolean, hasNext: Boolean
         ) {
             Icon(if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow, "Play/Pause", tint = Color.White, modifier = Modifier.size(40.dp))
         }
-        IconButton(onClick = onFwd10, modifier = Modifier.focusHighlight(CircleShape)) { Icon(Icons.Outlined.Forward10, "+10s", tint = Color.White, modifier = Modifier.size(34.dp)) }
+        SeekButton(forward = true, tint = Color.White, iconSize = 34.dp, onSeek = onSeek)
         IconButton(onClick = onNext, enabled = hasNext, modifier = Modifier.focusHighlight(CircleShape)) { Icon(Icons.Filled.SkipNext, "Next", tint = if (hasNext) Color.White else Color.White.copy(alpha = 0.35f), modifier = Modifier.size(30.dp)) }
+    }
+}
+
+/**
+ * Seek button with TV long-press support: a tap (or short D-pad click) seeks
+ * ±10s; holding D-pad center auto-repeats with acceleration for continuous
+ * fast-forward/rewind. Uses key auto-repeat (repeatCount) so it works from a
+ * remote where pointer long-press gestures don't fire.
+ */
+@Composable
+private fun SeekButton(forward: Boolean, tint: Color, iconSize: Dp, onSeek: (Int) -> Unit) {
+    val dir = if (forward) 1 else -1
+    val scope = rememberCoroutineScope()
+    var holdJob by remember { mutableStateOf<Job?>(null) }
+    var longActive by remember { mutableStateOf(false) }
+    IconButton(
+        onClick = { onSeek(dir * 10) },
+        modifier = Modifier
+            .focusHighlight(CircleShape)
+            .onPreviewKeyEvent { ev ->
+                val center = ev.key == Key.DirectionCenter || ev.key == Key.Enter || ev.key == Key.NumPadEnter
+                if (!center) return@onPreviewKeyEvent false
+                when (ev.type) {
+                    KeyEventType.KeyDown -> {
+                        // first KeyDown arms a long-press timer; auto-repeat re-enters
+                        // here while holding but the job-guard ignores those.
+                        if (holdJob == null) {
+                            holdJob = scope.launch {
+                                delay(350) // hold threshold before continuous seek kicks in
+                                longActive = true
+                                var step = 10
+                                while (isActive) {
+                                    onSeek(dir * step)
+                                    delay(170)
+                                    if (step < 40) step += 5 // accelerate while held
+                                }
+                            }
+                        }
+                        false // don't consume — short press still clicks via onClick
+                    }
+                    KeyEventType.KeyUp -> {
+                        holdJob?.cancel(); holdJob = null
+                        if (longActive) { longActive = false; true } else false // consume up only after a long-seek
+                    }
+                    else -> false
+                }
+            },
+    ) {
+        Icon(
+            if (forward) Icons.Outlined.Forward10 else Icons.Outlined.Replay10,
+            if (forward) "+10s" else "-10s",
+            tint = tint,
+            modifier = Modifier.size(iconSize),
+        )
     }
 }
 
@@ -675,7 +735,7 @@ private fun BottomControls(
 private fun CinemaDeck(
     np: xyz.devnerd.anmediaplayer.data.PrettyName, hasPrev: Boolean, hasNext: Boolean, time: Float, duration: Int, pct: Float, buffered: Float,
     playing: Boolean, subOn: Boolean, speed: Float, resizeLabel: String,
-    onScrub: (Float) -> Unit, onScrubEnd: () -> Unit, onPrev: () -> Unit, onNext: () -> Unit, onBack10: () -> Unit, onFwd10: () -> Unit, onToggle: () -> Unit,
+    onScrub: (Float) -> Unit, onScrubEnd: () -> Unit, onPrev: () -> Unit, onNext: () -> Unit, onSeek: (Int) -> Unit, onToggle: () -> Unit,
     onSheet: (PlayerSheet) -> Unit, onLock: () -> Unit,
 ) {
     Column(
@@ -689,11 +749,11 @@ private fun CinemaDeck(
         Scrubber(time, duration, pct, buffered, scrubbing = false, onDark = MaterialTheme.colorScheme.onSurface, cinema = true, onScrub = onScrub, onScrubEnd = onScrubEnd)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onPrev, enabled = hasPrev, modifier = Modifier.focusHighlight(CircleShape)) { Icon(Icons.Filled.SkipPrevious, "Previous", tint = MaterialTheme.colorScheme.onSurface) }
-            IconButton(onClick = onBack10, modifier = Modifier.focusHighlight(CircleShape)) { Icon(Icons.Outlined.Replay10, "-10s", tint = MaterialTheme.colorScheme.onSurface) }
+            SeekButton(forward = false, tint = MaterialTheme.colorScheme.onSurface, iconSize = 24.dp, onSeek = onSeek)
             Box(Modifier.padding(horizontal = 18.dp).focusHighlight(CircleShape).size(64.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary).clickable { onToggle() }, contentAlignment = Alignment.Center) {
                 Icon(if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow, "Play", tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(32.dp))
             }
-            IconButton(onClick = onFwd10, modifier = Modifier.focusHighlight(CircleShape)) { Icon(Icons.Outlined.Forward10, "+10s", tint = MaterialTheme.colorScheme.onSurface) }
+            SeekButton(forward = true, tint = MaterialTheme.colorScheme.onSurface, iconSize = 24.dp, onSeek = onSeek)
             IconButton(onClick = onNext, enabled = hasNext, modifier = Modifier.focusHighlight(CircleShape)) { Icon(Icons.Filled.SkipNext, "Next", tint = MaterialTheme.colorScheme.onSurface) }
         }
         ControlRow(subOn, speed, resizeLabel, MaterialTheme.colorScheme.onSurface, cinema = true, onSheet = onSheet, onLock = onLock)

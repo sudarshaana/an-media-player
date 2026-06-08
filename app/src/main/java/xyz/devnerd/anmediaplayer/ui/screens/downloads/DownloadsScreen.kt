@@ -1,8 +1,10 @@
 package xyz.devnerd.anmediaplayer.ui.screens.downloads
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -62,6 +64,7 @@ import xyz.devnerd.anmediaplayer.data.DownloadState
 import xyz.devnerd.anmediaplayer.data.DownloadsStore
 import xyz.devnerd.anmediaplayer.data.fmtSize
 import xyz.devnerd.anmediaplayer.ui.components.coverBrush
+import xyz.devnerd.anmediaplayer.ui.components.focusHighlight
 
 private enum class DlFilter(val label: String, val match: (DownloadState) -> Boolean) {
     ALL("All", { true }),
@@ -92,7 +95,8 @@ fun DownloadsScreen(
         modifier = modifier.fillMaxSize(),
         topBar = { TopAppBar(title = { Text("Downloads") }, windowInsets = androidx.compose.foundation.layout.WindowInsets(0)) },
     ) { inner ->
-        LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = inner.calculateTopPadding(), bottom = 28.dp)) {
+        Column(Modifier.fillMaxSize().padding(top = inner.calculateTopPadding())) {
+        LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 28.dp)) {
             item {
                 Row(
                     Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceContainerLow).padding(horizontal = 14.dp, vertical = 12.dp),
@@ -103,14 +107,14 @@ fun DownloadsScreen(
                         Text(if (wifiOnly) "Wi-Fi only" else "Wi-Fi & mobile data", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
                         Text("${fmtSize(used)} used · ${done.size} items offline", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    TextButton(onClick = onManage) { Text("Manage") }
+                    TextButton(onClick = onManage, modifier = Modifier.focusHighlight(RoundedCornerShape(12.dp))) { Text("Manage") }
                 }
             }
             item {
                 LazyRow(contentPadding = PaddingValues(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(DlFilter.entries.size) { i ->
                         val f = DlFilter.entries[i]
-                        FilterChip(selected = f == filter, onClick = { filter = f }, label = { Text(f.label) })
+                        FilterChip(selected = f == filter, onClick = { filter = f }, label = { Text(f.label) }, modifier = Modifier.focusHighlight(RoundedCornerShape(8.dp)))
                     }
                 }
             }
@@ -134,6 +138,7 @@ fun DownloadsScreen(
                     )
                 }
             }
+        }
         }
     }
 
@@ -187,11 +192,14 @@ private fun BoxScope.StatusMark(color: Color, icon: androidx.compose.ui.graphics
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun DownloadRow(d: Download, onPlay: () -> Unit, onPause: () -> Unit, onResume: () -> Unit, onRemove: () -> Unit) {
     val playable = d.state == DownloadState.DONE && d.localUri != null
     Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).then(if (playable) Modifier.clickable(onClick = onPlay) else Modifier).padding(horizontal = 8.dp, vertical = 10.dp),
+        // Playable row: tap/center plays, long-press removes (so the X stays
+        // reachable on TV, where the row-level clickable otherwise shadows it).
+        Modifier.fillMaxWidth().then(if (playable) Modifier.focusHighlight(RoundedCornerShape(16.dp)) else Modifier).clip(RoundedCornerShape(16.dp)).then(if (playable) Modifier.combinedClickable(onClick = onPlay, onLongClick = onRemove) else Modifier).padding(horizontal = 8.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Thumb(d.file, d.state)
@@ -218,11 +226,11 @@ private fun DownloadRow(d: Download, onPlay: () -> Unit, onPause: () -> Unit, on
             }
         }
         when (d.state) {
-            DownloadState.DOWNLOADING -> IconButton(onClick = onPause) { Icon(Icons.Outlined.Pause, "Pause", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
-            DownloadState.PAUSED -> IconButton(onClick = onResume) { Icon(Icons.Filled.PlayArrow, "Resume", tint = MaterialTheme.colorScheme.primary) }
-            DownloadState.FAILED -> IconButton(onClick = onResume) { Icon(Icons.Outlined.Refresh, "Retry", tint = MaterialTheme.colorScheme.primary) }
+            DownloadState.DOWNLOADING -> IconButton(onClick = onPause, modifier = Modifier.focusHighlight(CircleShape)) { Icon(Icons.Outlined.Pause, "Pause", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+            DownloadState.PAUSED -> IconButton(onClick = onResume, modifier = Modifier.focusHighlight(CircleShape)) { Icon(Icons.Filled.PlayArrow, "Resume", tint = MaterialTheme.colorScheme.primary) }
+            DownloadState.FAILED -> IconButton(onClick = onResume, modifier = Modifier.focusHighlight(CircleShape)) { Icon(Icons.Outlined.Refresh, "Retry", tint = MaterialTheme.colorScheme.primary) }
             else -> {}
         }
-        IconButton(onClick = onRemove) { Icon(Icons.Outlined.Close, "Remove", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+        IconButton(onClick = onRemove, modifier = Modifier.focusHighlight(CircleShape)) { Icon(Icons.Outlined.Close, "Remove", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
 }
