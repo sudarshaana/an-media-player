@@ -346,7 +346,7 @@ fun BrowserScreen(
                             pct = pct,
                             imageModel = thumb ?: if (e.isDir && path.isEmpty()) xyz.devnerd.anmediaplayer.ui.components.categoryCover(e.name) else null,
                             onClick = { open(e) },
-                            onLongClick = if (e.isDir) ({ pinFolder(e) }) else null,
+                            onLongClick = if (e.isDir) ({ pinFolder(e) }) else ({ menuFor = e }),
                             onMenu = if (!e.isDir) ({ menuFor = e }) else null,
                             pinned = e.isDir && isBookmarked(serverId, path + e.name),
                             metaName = metaNameFor(e),

@@ -43,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -50,6 +51,7 @@ import kotlinx.coroutines.delay
 import xyz.devnerd.anmediaplayer.data.fmtDur
 import xyz.devnerd.anmediaplayer.data.prettyName
 import xyz.devnerd.anmediaplayer.ui.components.coverBrush
+import xyz.devnerd.anmediaplayer.ui.components.focusHighlight
 
 @Composable
 fun ResumeDialog(posSec: Int, durSec: Int, onResume: () -> Unit, onStartOver: () -> Unit, onDismiss: () -> Unit) {
@@ -66,11 +68,13 @@ fun ResumeDialog(posSec: Int, durSec: Int, onResume: () -> Unit, onStartOver: ()
                 Box(Modifier.fillMaxWidth().height(6.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHighest)) {
                     Box(Modifier.fillMaxWidth(pct).fillMaxHeight().clip(CircleShape).background(MaterialTheme.colorScheme.primary))
                 }
+                val resumeFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+                LaunchedEffect(Unit) { runCatching { resumeFocus.requestFocus() } }
                 Column(Modifier.padding(top = 22.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = onResume, modifier = Modifier.fillMaxWidth()) {
+                    Button(onClick = onResume, modifier = Modifier.fillMaxWidth().focusRequester(resumeFocus).focusHighlight(RoundedCornerShape(20.dp))) {
                         Icon(Icons.Filled.PlayArrow, null, modifier = Modifier.size(18.dp)); Text("  Resume from ${fmtDur(posSec)}")
                     }
-                    FilledTonalButton(onClick = onStartOver, modifier = Modifier.fillMaxWidth()) {
+                    FilledTonalButton(onClick = onStartOver, modifier = Modifier.fillMaxWidth().focusHighlight(RoundedCornerShape(20.dp))) {
                         Icon(Icons.Outlined.Replay, null, modifier = Modifier.size(18.dp)); Text("  Start over")
                     }
                 }

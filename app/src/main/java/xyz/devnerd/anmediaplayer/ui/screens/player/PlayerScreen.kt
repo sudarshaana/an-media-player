@@ -506,23 +506,23 @@ fun PlayerScreen(
             }
         }
 
-        // Non-blocking resume pill (small, transparent). Plays from start; tap to jump.
+        // Non-blocking resume pill (top-center). Plays from start; click to jump.
         resumeOffer?.let { pos ->
+            val resumeFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+            LaunchedEffect(pos) { if (isTv) runCatching { resumeFocus.requestFocus() } }
             Row(
-                Modifier.align(Alignment.TopStart).padding(start = 12.dp, top = 64.dp)
-                    .clip(RoundedCornerShape(20.dp)).background(Color.Black.copy(alpha = 0.45f)),
-                verticalAlignment = Alignment.CenterVertically,
+                Modifier.align(Alignment.TopCenter).padding(top = 28.dp)
+                    .focusRequester(resumeFocus)
+                    .focusHighlight(RoundedCornerShape(28.dp))
+                    .clip(RoundedCornerShape(28.dp)).background(Color.Black.copy(alpha = 0.6f))
+                    .clickable { exo.seekTo(pos * 1000L); resumeOffer = null }
+                    .padding(start = 24.dp, end = 14.dp, top = 14.dp, bottom = 14.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Row(
-                    Modifier.clip(RoundedCornerShape(20.dp)).pointerInput(pos) { detectTapGestures { exo.seekTo(pos * 1000L); resumeOffer = null } }
-                        .padding(start = 12.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Icon(Icons.Outlined.Replay10, null, tint = Color.White, modifier = Modifier.size(18.dp))
-                    Text("Resume from ${fmtDur(pos)}", style = MaterialTheme.typography.labelMedium, color = Color.White)
-                }
-                IconButton(onClick = { resumeOffer = null }, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Outlined.Close, "Dismiss", tint = Color.White.copy(alpha = 0.85f), modifier = Modifier.size(16.dp))
+                Icon(Icons.Outlined.Replay10, null, tint = Color.White, modifier = Modifier.size(26.dp))
+                Text("Resume from ${fmtDur(pos)}", style = MaterialTheme.typography.titleMedium, color = Color.White)
+                IconButton(onClick = { resumeOffer = null }, modifier = Modifier.focusHighlight(CircleShape).size(40.dp)) {
+                    Icon(Icons.Outlined.Close, "Dismiss", tint = Color.White.copy(alpha = 0.85f), modifier = Modifier.size(22.dp))
                 }
             }
         }
@@ -568,23 +568,23 @@ private fun TopChrome(title: String, subtitle: String, cinema: Boolean, onClose:
             .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 28.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconButton(onClick = onClose) { Icon(Icons.Outlined.KeyboardArrowDown, "Close", tint = Color.White) }
+        IconButton(onClick = onClose, modifier = Modifier.focusHighlight(CircleShape)) { Icon(Icons.Outlined.KeyboardArrowDown, "Close", tint = Color.White) }
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.titleSmall, color = Color.White, maxLines = 1)
             Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f), maxLines = 1)
         }
-        if (onPlaylist != null) IconButton(onClick = onPlaylist) { Icon(Icons.AutoMirrored.Outlined.PlaylistPlay, "Playlist", tint = Color.White) }
+        if (onPlaylist != null) IconButton(onClick = onPlaylist, modifier = Modifier.focusHighlight(CircleShape)) { Icon(Icons.AutoMirrored.Outlined.PlaylistPlay, "Playlist", tint = Color.White) }
         if (castSlot != null) castSlot() else IconButton(onClick = {}, enabled = false) { Icon(Icons.Outlined.Cast, "Cast", tint = Color.White.copy(alpha = 0.4f)) }
-        IconButton(onClick = { onPiP?.invoke() }) { Icon(Icons.Outlined.PictureInPictureAlt, "PiP", tint = Color.White) }
-        IconButton(onClick = { onMore?.invoke() }) { Icon(Icons.Outlined.MoreVert, "More", tint = Color.White) }
+        IconButton(onClick = { onPiP?.invoke() }, modifier = Modifier.focusHighlight(CircleShape)) { Icon(Icons.Outlined.PictureInPictureAlt, "PiP", tint = Color.White) }
+        IconButton(onClick = { onMore?.invoke() }, modifier = Modifier.focusHighlight(CircleShape)) { Icon(Icons.Outlined.MoreVert, "More", tint = Color.White) }
     }
 }
 
 @Composable
 private fun CenterTransport(playing: Boolean, hasPrev: Boolean, hasNext: Boolean, onPrev: () -> Unit, onNext: () -> Unit, onBack10: () -> Unit, onFwd10: () -> Unit, onToggle: () -> Unit, playFocus: androidx.compose.ui.focus.FocusRequester? = null) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(28.dp)) {
-        IconButton(onClick = onPrev, enabled = hasPrev) { Icon(Icons.Filled.SkipPrevious, "Previous", tint = if (hasPrev) Color.White else Color.White.copy(alpha = 0.35f), modifier = Modifier.size(30.dp)) }
-        IconButton(onClick = onBack10) { Icon(Icons.Outlined.Replay10, "-10s", tint = Color.White, modifier = Modifier.size(34.dp)) }
+        IconButton(onClick = onPrev, enabled = hasPrev, modifier = Modifier.focusHighlight(CircleShape)) { Icon(Icons.Filled.SkipPrevious, "Previous", tint = if (hasPrev) Color.White else Color.White.copy(alpha = 0.35f), modifier = Modifier.size(30.dp)) }
+        IconButton(onClick = onBack10, modifier = Modifier.focusHighlight(CircleShape)) { Icon(Icons.Outlined.Replay10, "-10s", tint = Color.White, modifier = Modifier.size(34.dp)) }
         Box(
             Modifier.size(76.dp)
                 .then(if (playFocus != null) Modifier.focusRequester(playFocus) else Modifier)
@@ -595,8 +595,8 @@ private fun CenterTransport(playing: Boolean, hasPrev: Boolean, hasNext: Boolean
         ) {
             Icon(if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow, "Play/Pause", tint = Color.White, modifier = Modifier.size(40.dp))
         }
-        IconButton(onClick = onFwd10) { Icon(Icons.Outlined.Forward10, "+10s", tint = Color.White, modifier = Modifier.size(34.dp)) }
-        IconButton(onClick = onNext, enabled = hasNext) { Icon(Icons.Filled.SkipNext, "Next", tint = if (hasNext) Color.White else Color.White.copy(alpha = 0.35f), modifier = Modifier.size(30.dp)) }
+        IconButton(onClick = onFwd10, modifier = Modifier.focusHighlight(CircleShape)) { Icon(Icons.Outlined.Forward10, "+10s", tint = Color.White, modifier = Modifier.size(34.dp)) }
+        IconButton(onClick = onNext, enabled = hasNext, modifier = Modifier.focusHighlight(CircleShape)) { Icon(Icons.Filled.SkipNext, "Next", tint = if (hasNext) Color.White else Color.White.copy(alpha = 0.35f), modifier = Modifier.size(30.dp)) }
     }
 }
 
@@ -688,13 +688,13 @@ private fun CinemaDeck(
         }
         Scrubber(time, duration, pct, buffered, scrubbing = false, onDark = MaterialTheme.colorScheme.onSurface, cinema = true, onScrub = onScrub, onScrubEnd = onScrubEnd)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onPrev, enabled = hasPrev) { Icon(Icons.Filled.SkipPrevious, "Previous", tint = MaterialTheme.colorScheme.onSurface) }
-            IconButton(onClick = onBack10) { Icon(Icons.Outlined.Replay10, "-10s", tint = MaterialTheme.colorScheme.onSurface) }
+            IconButton(onClick = onPrev, enabled = hasPrev, modifier = Modifier.focusHighlight(CircleShape)) { Icon(Icons.Filled.SkipPrevious, "Previous", tint = MaterialTheme.colorScheme.onSurface) }
+            IconButton(onClick = onBack10, modifier = Modifier.focusHighlight(CircleShape)) { Icon(Icons.Outlined.Replay10, "-10s", tint = MaterialTheme.colorScheme.onSurface) }
             Box(Modifier.padding(horizontal = 18.dp).focusHighlight(CircleShape).size(64.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary).clickable { onToggle() }, contentAlignment = Alignment.Center) {
                 Icon(if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow, "Play", tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(32.dp))
             }
-            IconButton(onClick = onFwd10) { Icon(Icons.Outlined.Forward10, "+10s", tint = MaterialTheme.colorScheme.onSurface) }
-            IconButton(onClick = onNext, enabled = hasNext) { Icon(Icons.Filled.SkipNext, "Next", tint = MaterialTheme.colorScheme.onSurface) }
+            IconButton(onClick = onFwd10, modifier = Modifier.focusHighlight(CircleShape)) { Icon(Icons.Outlined.Forward10, "+10s", tint = MaterialTheme.colorScheme.onSurface) }
+            IconButton(onClick = onNext, enabled = hasNext, modifier = Modifier.focusHighlight(CircleShape)) { Icon(Icons.Filled.SkipNext, "Next", tint = MaterialTheme.colorScheme.onSurface) }
         }
         ControlRow(subOn, speed, resizeLabel, MaterialTheme.colorScheme.onSurface, cinema = true, onSheet = onSheet, onLock = onLock)
     }

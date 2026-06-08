@@ -49,6 +49,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.focusGroup
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -60,6 +61,7 @@ import xyz.devnerd.anmediaplayer.settings.NavPattern
 import xyz.devnerd.anmediaplayer.settings.PlayerLayout
 import xyz.devnerd.anmediaplayer.settings.ResumeBehavior
 import xyz.devnerd.anmediaplayer.settings.ThemeMode
+import xyz.devnerd.anmediaplayer.ui.components.focusHighlight
 import xyz.devnerd.anmediaplayer.ui.theme.Accent
 
 /** All Settings mutations in one place. */
@@ -95,7 +97,8 @@ fun SettingsScreen(settings: AppSettings, actions: SettingsActions, modifier: Mo
         modifier = modifier.fillMaxSize(),
         topBar = { TopAppBar(title = { Text("Settings") }, windowInsets = androidx.compose.foundation.layout.WindowInsets(0)) },
     ) { inner ->
-        LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(top = inner.calculateTopPadding(), bottom = 32.dp)) {
+        Column(Modifier.fillMaxSize().padding(top = inner.calculateTopPadding())) {
+        LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 32.dp)) {
             item {
                 SettingGroup("APPEARANCE") {
                     RowBelow(Icons.Outlined.DarkMode, "Theme") {
@@ -159,6 +162,7 @@ fun SettingsScreen(settings: AppSettings, actions: SettingsActions, modifier: Mo
                 }
             }
         }
+        }
     }
 }
 
@@ -166,14 +170,17 @@ fun SettingsScreen(settings: AppSettings, actions: SettingsActions, modifier: Mo
 private fun SettingGroup(label: String, content: @Composable () -> Unit) {
     Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 20.dp, top = 14.dp, bottom = 6.dp))
     Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
-        Column { content() }
+        // focusGroup lets D-pad directional search step INTO the nested controls
+        // (segmented buttons, accent swatches) instead of skipping the whole group
+        // and jumping to the bottom nav bar on TV.
+        Column(Modifier.focusGroup()) { content() }
     }
     Spacer(Modifier.size(10.dp))
 }
 
 @Composable
 private fun RowInline(icon: ImageVector, title: String, sub: String? = null, onClick: (() -> Unit)? = null, trailing: @Composable () -> Unit) {
-    Row(Modifier.fillMaxWidth().then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier).padding(horizontal = 20.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+    Row(Modifier.fillMaxWidth().then(if (onClick != null) Modifier.focusHighlight(RoundedCornerShape(12.dp)).clickable(onClick = onClick) else Modifier).padding(horizontal = 20.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
@@ -227,7 +234,7 @@ private fun appVersion(): String {
 private fun AccentSwatch(color: Color, selected: Boolean, onClick: () -> Unit) {
     Box(
         contentAlignment = Alignment.Center,
-        modifier = Modifier.size(38.dp).clip(CircleShape).background(color)
+        modifier = Modifier.size(38.dp).focusHighlight(CircleShape).clip(CircleShape).background(color)
             .then(if (selected) Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape) else Modifier)
             .clickable(onClick = onClick),
     ) {

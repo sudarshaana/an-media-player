@@ -63,8 +63,10 @@ class HttpMediaSource(
                 val abs = a.absUrl("href").ifBlank { continue }
                 if (!isDescendant(baseUrl, abs)) continue
                 val isDir = li.hasClass("folder") || abs.endsWith("/")
-                val name = li.selectFirst(".label")?.text()?.takeIf { it.isNotBlank() }
-                    ?: Uri.decode(abs.trimEnd('/').substringAfterLast('/'))
+                // Href segment (exact) over .label text (whitespace-collapsed) — see fb-n note.
+                val name = Uri.decode(abs.trimEnd('/').substringAfterLast('/')).ifBlank {
+                    li.selectFirst(".label")?.text()?.trim().orEmpty()
+                }
                 if (name.isBlank()) continue
                 val bytes = li.selectFirst(".size")?.attr("data-bytes")?.toLongOrNull()
                 val mtime = msToDate(li.selectFirst(".date")?.attr("data-time")?.toLongOrNull())
@@ -81,7 +83,11 @@ class HttpMediaSource(
                 val a = tr.selectFirst("td.fb-n a[href]") ?: continue
                 val href = a.attr("href")
                 if (href.isBlank() || href == ".." || href.startsWith("?")) continue
-                val name = a.text().trim().ifBlank { Uri.decode(href.trimEnd('/').substringAfterLast('/')) }
+                // Navigation name must come from the href segment, not a.text():
+                // jsoup collapses consecutive whitespace, so folder names with
+                // double spaces (e.g. "Anime-TV Series ♥  A  —  F") would re-encode
+                // to a single-space path and 404. Decoded href segment is exact.
+                val name = Uri.decode(href.trimEnd('/').substringAfterLast('/')).ifBlank { a.text().trim() }
                 if (name.isBlank() || name.equals("Parent Directory", true)) continue
                 val isDir = href.endsWith("/") || (tr.selectFirst("td.fb-i img")?.attr("alt")?.contains("folder", true) == true)
                 val mtime = tr.selectFirst("td.fb-d")?.text()?.trim()?.takeIf { it.isNotBlank() }?.substringBefore(' ')
