@@ -144,7 +144,10 @@ fun PlaylistSheet(items: List<String>, current: Int, onPick: (Int) -> Unit, onDi
                     IconButton(onClick = onDismiss) { Icon(Icons.Outlined.Close, "Close", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
                 androidx.compose.material3.HorizontalDivider()
-                androidx.compose.foundation.lazy.LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
+                val listState = androidx.compose.foundation.lazy.rememberLazyListState(
+                    initialFirstVisibleItemIndex = current.coerceAtLeast(0),
+                )
+                androidx.compose.foundation.lazy.LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState) {
                     itemsIndexed(items) { i, label ->
                         val on = i == current
                         Row(

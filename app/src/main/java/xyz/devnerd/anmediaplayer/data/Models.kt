@@ -59,7 +59,8 @@ data class Download(
     val size: Long,
     val state: DownloadState,
     val progress: Int? = null,
-    val whenLabel: String? = null,
+    /** Epoch millis when download finished; 0 = not done. Render computes relative label. */
+    val completedAt: Long = 0,
     val server: String,
     val path: List<String>,
     val durSec: Int,
