@@ -102,9 +102,10 @@ fun HomeScreen(
 
         if (bookmarks.isNotEmpty()) {
             SectionHead("Bookmarks")
+            val latestFirst = bookmarks.asReversed()
             LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(bookmarks.size) { i ->
-                    val b = bookmarks[i]
+                items(latestFirst.size) { i ->
+                    val b = latestFirst[i]
                     val name = b.path.lastOrNull() ?: AppRepo.serverById(b.server)?.name ?: "Folder"
                     val thumb = xyz.devnerd.anmediaplayer.ui.components.rememberFolderThumb(b.server, b.path)
                     val offline = xyz.devnerd.anmediaplayer.data.ServerHealth.isOffline(b.server)

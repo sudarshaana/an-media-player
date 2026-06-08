@@ -86,7 +86,7 @@ fun DownloadsScreen(
 
     val done = items.filter { it.state == DownloadState.DONE }
     val used = done.sumOf { it.size }
-    val shown = items.filter { filter.match(it.state) }
+    val shown = items.asReversed().filter { filter.match(it.state) }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),

@@ -76,8 +76,12 @@ fun App(
         xyz.devnerd.anmediaplayer.data.ServerHealth.checkAll(AppRepo.servers.toList())
     }
 
+    val tvIndication = xyz.devnerd.anmediaplayer.ui.components.rememberTvFocusIndication()
     androidx.compose.runtime.CompositionLocalProvider(
         xyz.devnerd.anmediaplayer.ui.components.LocalIsTv provides isTv,
+        // On TV, paint a visible focus ring on every clickable element so D-pad
+        // selection is visible. Phones keep the default ripple.
+        *(if (isTv) arrayOf(androidx.compose.foundation.LocalIndication provides tvIndication) else emptyArray()),
     ) {
     Box(Modifier.fillMaxSize()) {
     Scaffold(

@@ -31,8 +31,9 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -53,6 +54,24 @@ private fun SheetHeader(title: String, onClose: () -> Unit) {
     }
 }
 
+/**
+ * Centered option dialog for the player. Near-transparent dark panel so the
+ * video stays visible behind, while content keeps full M3 contrast.
+ */
+@Composable
+private fun PlayerDialog(onDismiss: () -> Unit, content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(
+            modifier = Modifier.width(380.dp).heightIn(max = 440.dp),
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.90f),
+            shadowElevation = 12.dp,
+        ) {
+            Column(content = content)
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MoreSheet(
@@ -66,7 +85,7 @@ fun MoreSheet(
     onDownload: (() -> Unit)? = null,
     onDismiss: () -> Unit,
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    PlayerDialog(onDismiss) {
         SheetHeader("More", onDismiss)
         Column(Modifier.verticalScroll(rememberScrollState())) {
             Row(
@@ -157,7 +176,7 @@ fun PlaylistSheet(items: List<String>, current: Int, onPick: (Int) -> Unit, onDi
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TrackSheet(title: String, tracks: List<String>, selected: Int, onPick: (Int) -> Unit, onDismiss: () -> Unit, footer: String? = null) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    PlayerDialog(onDismiss) {
         SheetHeader(title, onDismiss)
         Column(Modifier.verticalScroll(rememberScrollState())) {
             tracks.forEachIndexed { i, tk ->
@@ -193,7 +212,7 @@ fun TrackSheet(title: String, tracks: List<String>, selected: Int, onPick: (Int)
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun SpeedSheet(speeds: List<Float>, selected: Float, onPick: (Float) -> Unit, onDismiss: () -> Unit) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    PlayerDialog(onDismiss) {
         SheetHeader("Playback speed", onDismiss)
         FlowRow(
             Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 4.dp),
@@ -221,7 +240,7 @@ fun SpeedSheet(speeds: List<Float>, selected: Float, onPick: (Float) -> Unit, on
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ResizeSheet(resizes: List<Pair<String, String>>, selected: String, onPick: (String) -> Unit, onDismiss: () -> Unit) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    PlayerDialog(onDismiss) {
         SheetHeader("Resize mode", onDismiss)
         resizes.forEach { (id, label) ->
             val on = id == selected
