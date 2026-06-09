@@ -699,10 +699,10 @@ private fun ControlButton(icon: ImageVector, label: String, active: Boolean, onD
 @Composable
 private fun ControlRow(subOn: Boolean, speed: Float, resizeLabel: String, onDark: Color, cinema: Boolean, onSheet: (PlayerSheet) -> Unit, onLock: () -> Unit) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        ControlButton(Icons.Outlined.AspectRatio, resizeLabel, resizeLabel != "Fit", onDark, cinema) { onSheet(PlayerSheet.RESIZE) }
         ControlButton(Icons.Outlined.ClosedCaption, if (subOn) "On" else "Subtitles", subOn, onDark, cinema) { onSheet(PlayerSheet.SUBTITLE) }
         ControlButton(Icons.AutoMirrored.Filled.VolumeUp, "Audio", false, onDark, cinema) { onSheet(PlayerSheet.AUDIO) }
         ControlButton(Icons.Outlined.Speed, if (speed == 1f) "Speed" else "${speed}×", speed != 1f, onDark, cinema) { onSheet(PlayerSheet.SPEED) }
-        ControlButton(Icons.Outlined.AspectRatio, resizeLabel, resizeLabel != "Fit", onDark, cinema) { onSheet(PlayerSheet.RESIZE) }
         ControlButton(Icons.Outlined.Lock, "Lock", false, onDark, cinema) { onLock() }
     }
 }
