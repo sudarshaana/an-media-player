@@ -9,6 +9,15 @@
     ]
   },
   {
+    "name": "i Smart | ismart",
+    "urls": [
+      "http://172.16.50.7/DHAKA-FLIX-7/",
+      "http://172.16.50.12/DHAKA-FLIX-12/",
+      "http://172.16.50.14/DHAKA-FLIX-14/",
+      "http://172.16.50.9/DHAKA-FLIX-9/"
+    ]
+  },
+  {
     "name": "BUSINESS NETWORK (FTPBD) FTP SERVER",
     "urls": [
       "http://ftpbd.net",
@@ -2286,15 +2295,6 @@
     "urls": [
       "http://15.20.20.20",
       "https://genvideos.org"
-    ]
-  },
-  {
-    "name": "i Smart",
-    "urls": [
-      "http://172.16.50.7/DHAKA-FLIX-7/",
-      "http://172.16.50.12/DHAKA-FLIX-12/",
-      "http://172.16.50.14/DHAKA-FLIX-14/",
-      "http://172.16.50.9/DHAKA-FLIX-9/"
     ]
   }
 ]
