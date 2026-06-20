@@ -6,7 +6,9 @@ import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -108,7 +110,7 @@ fun ServersScreen(
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = inner.calculateTopPadding() + 4.dp, bottom = 96.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                items(servers, key = { it.id }) { s ->
+                items(servers.sortedByDescending { it.favorite }, key = { it.id }) { s ->
                     ServerRow(s = s, onOpen = { onOpenServer(s.id) }, onMenu = { menuFor = s })
                 }
                 item { HintCard() }
@@ -133,6 +135,7 @@ fun ServersScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ServerRow(s: Server, onOpen: () -> Unit, onMenu: () -> Unit) {
     Surface(
@@ -141,7 +144,7 @@ private fun ServerRow(s: Server, onOpen: () -> Unit, onMenu: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(20.dp))
-            .clickable(onClick = onOpen),
+            .combinedClickable(onClick = onOpen, onLongClick = onMenu),
     ) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             Box(
@@ -246,7 +249,7 @@ private fun HintCard() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ServerContextSheet(
+internal fun ServerContextSheet(
     server: Server,
     onDismiss: () -> Unit,
     onOpen: () -> Unit,
@@ -277,7 +280,7 @@ private fun ServerContextSheet(
 }
 
 @Composable
-private fun SheetAction(icon: ImageVector, label: String, onClick: () -> Unit, destructive: Boolean = false) {
+internal fun SheetAction(icon: ImageVector, label: String, onClick: () -> Unit, destructive: Boolean = false) {
     val tint = if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 24.dp, vertical = 14.dp),
@@ -289,7 +292,7 @@ private fun SheetAction(icon: ImageVector, label: String, onClick: () -> Unit, d
     }
 }
 
-private fun copyToClipboard(ctx: Context, text: String) {
+internal fun copyToClipboard(ctx: Context, text: String) {
     val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     cm.setPrimaryClip(ClipData.newPlainText("server address", text))
 }

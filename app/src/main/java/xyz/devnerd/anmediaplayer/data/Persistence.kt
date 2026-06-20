@@ -1,6 +1,7 @@
 package xyz.devnerd.anmediaplayer.data
 
 import android.content.Context
+import android.content.Intent
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.datastore.core.DataStore
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import androidx.core.content.ContextCompat
 import org.json.JSONArray
 import org.json.JSONObject
 import xyz.devnerd.anmediaplayer.data.source.HttpMediaSource
@@ -320,18 +322,53 @@ object DownloadsStore {
         persist()
     }
 
-    fun pause(id: String) { jobs.remove(id)?.cancel(); update(id, DownloadState.PAUSED) }
+    fun pause(id: String) { jobs.remove(id)?.cancel(); update(id, DownloadState.PAUSED); maybeStopService() }
     fun resume(id: String) { start(id) }
+
+    /** Wipe any existing bytes (partial or completed) and re-download from scratch. */
+    fun restart(ctx: Context, id: String) {
+        jobs.remove(id)?.cancel()
+        val i = items.indexOfFirst { it.id == id }
+        if (i < 0) return
+        val item = items[i]
+        runCatching { fileFor(item.file).delete() }
+        item.localUri?.takeIf { it.startsWith("content://") }?.let { uri ->
+            runCatching { androidx.documentfile.provider.DocumentFile.fromSingleUri(ctx, android.net.Uri.parse(uri))?.delete() }
+        }
+        items[i] = item.copy(state = DownloadState.QUEUED, progress = 0, downloadedBytes = 0, localUri = null, completedAt = 0)
+        persist()
+        start(id)
+    }
 
     private fun start(id: String) {
         if (jobs[id]?.isActive == true) return
         update(id, DownloadState.DOWNLOADING)
+        maybeStartService()
         jobs[id] = scope.launch {
             runCatching { downloadLoop(id) }.onFailure {
                 if (it !is kotlinx.coroutines.CancellationException) update(id, DownloadState.FAILED)
             }
             jobs.remove(id)
+            maybeStopService()
         }
+    }
+
+    /** Foreground service exempts the transfer from background process freezing/network throttling. */
+    private fun maybeStartService() {
+        if (::appCtx.isInitialized) ContextCompat.startForegroundService(appCtx, Intent(appCtx, DownloadService::class.java))
+    }
+
+    private fun maybeStopService() {
+        if (jobs.isEmpty() && ::appCtx.isInitialized) appCtx.stopService(Intent(appCtx, DownloadService::class.java))
+    }
+
+    private fun refreshNotification() {
+        if (!::appCtx.isInitialized) return
+        val active = items.filter { it.state == DownloadState.DOWNLOADING }
+        if (active.isEmpty()) return
+        val first = active.first()
+        val text = if (active.size > 1) "${first.title} +${active.size - 1} more" else first.title
+        DownloadService.notify(appCtx, "Downloading", text, first.progress ?: 0)
     }
 
     private suspend fun downloadLoop(id: String) {
@@ -396,6 +433,13 @@ object DownloadsStore {
             downloadedBytes = downloadedBytes ?: prev.downloadedBytes,
         )
         if (prev.state != state || prev.localUri != items[i].localUri) persist()
+        if (state == DownloadState.DOWNLOADING) refreshNotification()
+    }
+
+    /** A Local Files delete already removed the file via MediaStore — drop the matching Downloads row, file already gone. */
+    fun removeByLocalPath(ctx: Context, path: String) {
+        val match = items.firstOrNull { d -> d.localUri?.startsWith("file://") == true && android.net.Uri.parse(d.localUri).path == path }
+        match?.let { remove(ctx, it.id, deleteFile = false) }
     }
 
     fun remove(ctx: Context, id: String, deleteFile: Boolean = false) {
@@ -410,6 +454,7 @@ object DownloadsStore {
         }
         items.removeAll { it.id == id }
         persist()
+        maybeStopService()
     }
 
     private fun serializeDownloads(list: List<Download>): String = JSONArray().apply {

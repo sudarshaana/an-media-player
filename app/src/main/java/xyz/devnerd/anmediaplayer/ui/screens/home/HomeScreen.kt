@@ -27,6 +27,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Dns
@@ -34,10 +35,17 @@ import androidx.compose.material.icons.outlined.TravelExplore
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Wifi
+import androidx.compose.material.icons.outlined.WifiOff
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -71,11 +79,16 @@ fun HomeScreen(
     onOpenConnect: () -> Unit = {},
     onManageServers: () -> Unit = {},
     onFindServers: () -> Unit = {},
+    onEditServer: (String) -> Unit = {},
 ) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
-    val servers: List<Server> = AppRepo.servers
-    val cont = AppRepo.continueItems()
+    val servers: List<Server> = AppRepo.servers.sortedByDescending { it.favorite }
+    var menuFor by remember { mutableStateOf<Server?>(null) }
+    var contReachableOnly by remember { mutableStateOf(true) }
+    var bookmarksReachableOnly by remember { mutableStateOf(true) }
+    val contAll = AppRepo.continueItems()
         .map { it to ((it.posSec.toFloat() / it.durSec) * 100).toInt() }
+    val cont = if (contReachableOnly) contAll.filterNot { xyz.devnerd.anmediaplayer.data.ServerHealth.isOffline(it.first.server) } else contAll
     fun offlineToast(serverId: String) {
         val n = AppRepo.serverById(serverId)?.name ?: "Server"
         android.widget.Toast.makeText(ctx, "$n is offline", android.widget.Toast.LENGTH_SHORT).show()
@@ -92,8 +105,13 @@ fun HomeScreen(
             Text("Watch", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onSurface)
         }
 
-        if (cont.isNotEmpty()) {
-            SectionHead("Continue watching")
+        if (contAll.isNotEmpty()) {
+            SectionHead(
+                "Continue watching",
+                toggleLabel = "Reachable only",
+                toggled = contReachableOnly,
+                onToggle = { contReachableOnly = it },
+            )
             LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(cont.size) { i ->
                     val (item, pct) = cont[i]
@@ -104,8 +122,14 @@ fun HomeScreen(
         }
 
         if (bookmarks.isNotEmpty()) {
-            SectionHead("Bookmarks")
+            SectionHead(
+                "Bookmarks",
+                toggleLabel = "Reachable only",
+                toggled = bookmarksReachableOnly,
+                onToggle = { bookmarksReachableOnly = it },
+            )
             val latestFirst = bookmarks.asReversed()
+                .filter { !bookmarksReachableOnly || !xyz.devnerd.anmediaplayer.data.ServerHealth.isOffline(it.server) }
             LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(latestFirst.size) { i ->
                     val b = latestFirst[i]
@@ -123,7 +147,15 @@ fun HomeScreen(
             SectionHead("Your servers", action = "Manage", onAction = onManageServers)
             Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 servers.forEach { s ->
-                    ServerRow(serverId = s.id, name = s.name, url = s.url, auth = s.auth, onClick = { onOpenServer(s.id) })
+                    ServerRow(
+                        serverId = s.id,
+                        name = s.name,
+                        url = s.url,
+                        auth = s.auth,
+                        favorite = s.favorite,
+                        onClick = { onOpenServer(s.id) },
+                        onLongClick = { menuFor = s },
+                    )
                 }
             }
         }
@@ -144,12 +176,36 @@ fun HomeScreen(
 }
         }
     }
+
+    menuFor?.let { server ->
+        xyz.devnerd.anmediaplayer.ui.screens.servers.ServerContextSheet(
+            server = server,
+            onDismiss = { menuFor = null },
+            onOpen = { onOpenServer(server.id); menuFor = null },
+            onEdit = { onEditServer(server.id); menuFor = null },
+            onCopy = {
+                xyz.devnerd.anmediaplayer.ui.screens.servers.copyToClipboard(ctx, server.url)
+                android.widget.Toast.makeText(ctx, "Address copied", android.widget.Toast.LENGTH_SHORT).show()
+                menuFor = null
+            },
+            onFavorite = { AppRepo.toggleFavorite(server.id); menuFor = null },
+            onRemove = { AppRepo.removeServer(server.id); menuFor = null },
+        )
+    }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SectionHead(title: String, action: String? = null, onAction: () -> Unit = {}) {
+private fun SectionHead(
+    title: String,
+    action: String? = null,
+    onAction: () -> Unit = {},
+    toggleLabel: String? = null,
+    toggled: Boolean = false,
+    onToggle: (Boolean) -> Unit = {},
+) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 12.dp),
+        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, top = 20.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
@@ -161,6 +217,29 @@ private fun SectionHead(title: String, action: String? = null, onAction: () -> U
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onAction).padding(horizontal = 8.dp, vertical = 4.dp),
             )
+        }
+        if (toggleLabel != null) {
+            TooltipBox(
+                positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+                tooltip = { PlainTooltip { Text(toggleLabel) } },
+                state = rememberTooltipState(),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(30.dp)
+                        .clip(CircleShape)
+                        .background(if (toggled) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+                        .clickable(onClick = { onToggle(!toggled) }),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        if (toggled) Icons.Outlined.Wifi else Icons.Outlined.WifiOff,
+                        contentDescription = toggleLabel,
+                        tint = if (toggled) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
+            }
         }
     }
 }
@@ -259,12 +338,13 @@ private fun BookmarkCard(name: String, imageModel: Any?, offline: Boolean, onCli
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ServerRow(serverId: String, name: String, url: String, auth: Boolean, onClick: () -> Unit) {
+private fun ServerRow(serverId: String, name: String, url: String, auth: Boolean, favorite: Boolean, onClick: () -> Unit, onLongClick: () -> Unit) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         shape = RoundedCornerShape(16.dp),
-        modifier = Modifier.fillMaxWidth().focusHighlight(RoundedCornerShape(16.dp)).clip(RoundedCornerShape(16.dp)).clickable(onClick = onClick),
+        modifier = Modifier.fillMaxWidth().focusHighlight(RoundedCornerShape(16.dp)).clip(RoundedCornerShape(16.dp)).combinedClickable(onClick = onClick, onLongClick = onLongClick),
     ) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             Box(
@@ -274,7 +354,10 @@ private fun ServerRow(serverId: String, name: String, url: String, auth: Boolean
                 Icon(Icons.Outlined.Dns, null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(22.dp))
             }
             Column(Modifier.weight(1f)) {
-                Text(name, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(name, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                    if (favorite) Icon(Icons.Filled.Star, "Favorite", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(13.dp))
+                }
                 Text(url, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             if (auth) Icon(Icons.Outlined.Lock, "Requires sign-in", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(15.dp))

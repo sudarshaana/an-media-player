@@ -127,7 +127,7 @@ Device drops off Wi-Fi: `adb connect <ip>:<port>` (user pairs it).
 
 ## Real-backend test target (Phase 7)
 
-`http://data.speed4you.net/` — local **h5ai** server on local
+`https://data.speed4you.net/` — local **h5ai** server on local
 network. Use to validate h5ai JSON parser, listing, streaming. Cleartext
 HTTP — needs `networkSecurityConfig` / `usesCleartextTraffic` allowance for that host.
 

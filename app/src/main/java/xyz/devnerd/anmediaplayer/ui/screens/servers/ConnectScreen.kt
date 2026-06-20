@@ -77,6 +77,7 @@ fun ConnectScreen(
     editServer: Server? = null,
 ) {
     val editing = editServer != null
+    var name by remember { mutableStateOf(editServer?.name ?: "") }
     var url by remember { mutableStateOf(editServer?.url ?: "http://") }
     var needAuth by remember { mutableStateOf(editServer?.auth ?: false) }
     var user by remember { mutableStateOf(editServer?.user ?: "") }
@@ -109,6 +110,16 @@ fun ConnectScreen(
                 .padding(horizontal = 20.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
+            // name
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("NAME") },
+                singleLine = true,
+                placeholder = { Text("Auto from address") },
+                modifier = Modifier.fillMaxWidth(),
+            )
+
             // address
             OutlinedTextField(
                 value = url,
@@ -183,7 +194,7 @@ fun ConnectScreen(
                     if (connecting) return@Button
                     connecting = true
                     scope.launch {
-                        val server = buildServer(url, proto, parser, needAuth, user, pass, editServer)
+                        val server = buildServer(name, url, proto, parser, needAuth, user, pass, editServer)
                         AppRepo.addServer(server)
                         kotlinx.coroutines.delay(400)
                         onConnected(server.id)
@@ -227,13 +238,13 @@ fun ConnectScreen(
     }
 }
 
-private fun buildServer(url: String, proto: String?, parser: String?, auth: Boolean, user: String, pass: String, existing: Server? = null): Server {
+private fun buildServer(name: String, url: String, proto: String?, parser: String?, auth: Boolean, user: String, pass: String, existing: Server? = null): Server {
     val clean = url.trim()
     val host = runCatching { java.net.URI(clean).host }.getOrNull()
         ?: clean.substringAfter("://").substringBefore('/').ifBlank { "Server" }
     return Server(
         id = existing?.id ?: ("srv_" + Integer.toHexString(clean.hashCode())),
-        name = host,
+        name = name.trim().ifBlank { host },
         url = clean,
         protocol = proto ?: "HTTP",
         auth = auth,

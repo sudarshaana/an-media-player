@@ -42,6 +42,10 @@ data class PlaybackRequest(
     val playlist: List<EpisodeRef>? = null,
     /** Direct local file/content URI for offline playback (bypasses the server). */
     val directUrl: String? = null,
+    /** Poster resolved at download time — used for continue-watching since offline playback never hits the server. */
+    val localCoverUrl: String? = null,
+    /** Taller-than-wide source (local portrait clips) — rotate the player to portrait instead of forcing landscape. */
+    val portrait: Boolean = false,
 )
 
 @Composable
@@ -50,7 +54,6 @@ fun PlayerHost(request: PlaybackRequest, settings: AppSettings, onClose: () -> U
 
     DisposableEffect(Unit) {
         val prevOrientation = activity?.requestedOrientation
-        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         val controller = activity?.window?.let { WindowCompat.getInsetsController(it, it.decorView) }
         controller?.apply {
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -68,11 +71,18 @@ fun PlayerHost(request: PlaybackRequest, settings: AppSettings, onClose: () -> U
     var ended by remember { mutableStateOf(false) }
     var restartToken by remember { mutableIntStateOf(0) }
 
+    // Pinned offline playback (a single downloaded file): never touch the server — a remote
+    // listing call here would hang/fail with no network and leave the player stuck on the spinner.
+    val pinnedOffline = curPath == request.path && file == request.file && request.directUrl != null
+    // A Local Files playlist carries its own URI per entry — every item in it is offline, always.
+    val allLocalPlaylist = request.playlist?.isNotEmpty() == true && request.playlist.all { it.directUrl != null }
+    val skipRemoteListing = pinnedOffline || allLocalPlaylist
+
     // Listing of the current episode's folder — for subtitle match (+ folder-siblings playlist).
     val curKeyPath = curPath.joinToString("/")
     var entries by remember(curKeyPath) { mutableStateOf<List<Entry>?>(null) }
-    LaunchedEffect(request.serverId, curKeyPath) {
-        entries = runCatching { MediaRepo.list(request.serverId, curPath) }.getOrDefault(emptyList())
+    LaunchedEffect(request.serverId, curKeyPath, skipRemoteListing) {
+        entries = if (skipRemoteListing) emptyList() else runCatching { MediaRepo.list(request.serverId, curPath) }.getOrDefault(emptyList())
     }
     val loaded = entries
     if (loaded == null) {
@@ -85,6 +95,12 @@ fun PlayerHost(request: PlaybackRequest, settings: AppSettings, onClose: () -> U
     val idx = playlist.indexOfFirst { it.path == curPath && it.file == file }
     val nextEp = playlist.getOrNull(idx + 1)
     val prevEp = playlist.getOrNull(idx - 1)
+    val curDirectUrl = playlist.getOrNull(idx)?.directUrl ?: request.directUrl?.takeIf { pinnedOffline }
+    val offline = curDirectUrl != null
+    val curPortrait = playlist.getOrNull(idx)?.portrait ?: (request.portrait && pinnedOffline)
+    LaunchedEffect(curPortrait) {
+        activity?.requestedOrientation = if (curPortrait) ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT else ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+    }
 
     // Decide start position + whether to offer a non-blocking "Resume from …" pill.
     val decision = remember(file, curKeyPath, restartToken) {
@@ -107,9 +123,10 @@ fun PlayerHost(request: PlaybackRequest, settings: AppSettings, onClose: () -> U
     val resumePromptSec = decision.second
 
     val np = prettyName(file)
-    val streamUrl = if (curPath == request.path && file == request.file && request.directUrl != null) request.directUrl else MediaRepo.fileUrl(request.serverId, curPath, file)
-    val subtitleUrl = matchSubtitle(loaded, file)?.let { MediaRepo.fileUrl(request.serverId, curPath, it.name) }
-    val coverUrl = loaded.firstOrNull { it.type == xyz.devnerd.anmediaplayer.data.EntryType.IMAGE }?.let { MediaRepo.fileUrl(request.serverId, curPath, it.name) }
+    val streamUrl = curDirectUrl ?: MediaRepo.fileUrl(request.serverId, curPath, file)
+    // Downloads carry no sibling subtitle/cover — those live on the server, never fetched offline.
+    val subtitleUrl = if (offline) null else matchSubtitle(loaded, file)?.let { MediaRepo.fileUrl(request.serverId, curPath, it.name) }
+    val coverUrl = if (offline) request.localCoverUrl else loaded.firstOrNull { it.type == xyz.devnerd.anmediaplayer.data.EntryType.IMAGE }?.let { MediaRepo.fileUrl(request.serverId, curPath, it.name) }
 
     fun goTo(ep: EpisodeRef?) {
         ep ?: return
@@ -118,7 +135,7 @@ fun PlayerHost(request: PlaybackRequest, settings: AppSettings, onClose: () -> U
 
     // Download the current file — only when streaming from a server (not already offline).
     val context = LocalContext.current
-    val downloadAction: (() -> Unit)? = if (request.directUrl == null) ({
+    val downloadAction: (() -> Unit)? = if (!offline) ({
         val size = loaded.firstOrNull { it.name == file }?.size ?: 0
         xyz.devnerd.anmediaplayer.data.DownloadsStore.enqueue(
             context, request.serverId, curPath, file, np.primary, np.secondary.ifBlank { file },

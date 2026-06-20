@@ -44,6 +44,7 @@ import androidx.compose.material.icons.outlined.Brightness6
 import androidx.compose.material.icons.outlined.Cast
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ClosedCaption
+import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Fullscreen
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.Lock
@@ -91,6 +92,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import xyz.devnerd.anmediaplayer.data.PrettyName
 import xyz.devnerd.anmediaplayer.data.fmtDur
 import xyz.devnerd.anmediaplayer.settings.PlayerLayout
@@ -98,7 +100,7 @@ import xyz.devnerd.anmediaplayer.ui.components.LocalIsTv
 import xyz.devnerd.anmediaplayer.ui.components.focusHighlight
 import kotlin.math.roundToInt
 
-private enum class PlayerSheet { SUBTITLE, AUDIO, SPEED, RESIZE }
+private enum class PlayerSheet { SUBTITLE, SUBTITLE_LOAD, AUDIO, SPEED, RESIZE }
 private data class Gesture(val left: Boolean, val value: Float)
 private data class SeekFx(val forward: Boolean, val token: Long)
 
@@ -115,6 +117,24 @@ private fun audioOptions(tracks: androidx.media3.common.Tracks): List<AudioOpt> 
             val lang = f.language?.let { java.util.Locale(it).displayLanguage.ifBlank { it } }
             val parts = listOfNotNull(f.label, lang, f.codecs?.substringBefore('.')?.uppercase(), if (f.channelCount > 0) "${f.channelCount}ch" else null)
             add(AudioOpt(g, i, parts.joinToString(" · ").ifBlank { "Audio $n" }, g.isTrackSelected(i)))
+            n++
+        }
+    }
+}
+
+@OptIn(UnstableApi::class)
+private data class SubOpt(val group: androidx.media3.common.Tracks.Group, val trackIndex: Int, val label: String)
+
+@OptIn(UnstableApi::class)
+private fun subOptions(tracks: androidx.media3.common.Tracks): List<SubOpt> = buildList {
+    var n = 1
+    tracks.groups.filter { it.type == C.TRACK_TYPE_TEXT }.forEach { g ->
+        for (i in 0 until g.length) {
+            if (!g.isTrackSupported(i)) continue
+            val f = g.getTrackFormat(i)
+            val lang = f.language?.let { java.util.Locale(it).displayLanguage.ifBlank { it } }
+            val parts = listOfNotNull(f.label, lang)
+            add(SubOpt(g, i, parts.joinToString(" · ").ifBlank { "Subtitle $n" }))
             n++
         }
     }
@@ -194,11 +214,13 @@ fun PlayerScreen(
     var bufferedPct by remember(streamUrl) { mutableFloatStateOf(0f) }
     var playing by remember { mutableStateOf(true) }
     var buffering by remember { mutableStateOf(true) }
+    var playerError by remember(streamUrl) { mutableStateOf<String?>(null) }
     var showUI by remember { mutableStateOf(true) }
     var locked by remember { mutableStateOf(false) }
     var speed by remember { mutableFloatStateOf(1f) }
     var subIndex by remember { mutableIntStateOf(if (subtitlesDefault) 1 else 0) }
     var audioOpts by remember { mutableStateOf<List<AudioOpt>>(emptyList()) }
+    var subOpts by remember { mutableStateOf<List<SubOpt>>(emptyList()) }
     var resize by remember { mutableStateOf("fit") }
     var sheet by remember { mutableStateOf<PlayerSheet?>(null) }
     var showPlaylist by remember { mutableStateOf(false) }
@@ -228,7 +250,27 @@ fun PlayerScreen(
                 buffering = state == Player.STATE_BUFFERING
                 if (state == Player.STATE_ENDED) onEnded()
             }
-            override fun onTracksChanged(tracks: androidx.media3.common.Tracks) { audioOpts = audioOptions(tracks) }
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                buffering = false
+                showUI = true
+                playerError = when (error.errorCode) {
+                    androidx.media3.common.PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND,
+                    androidx.media3.common.PlaybackException.ERROR_CODE_IO_NO_PERMISSION -> "Media not found on server."
+                    androidx.media3.common.PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS,
+                    androidx.media3.common.PlaybackException.ERROR_CODE_IO_UNSPECIFIED,
+                    androidx.media3.common.PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+                    androidx.media3.common.PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> "Connection to server failed."
+                    androidx.media3.common.PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED,
+                    androidx.media3.common.PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED,
+                    androidx.media3.common.PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
+                    androidx.media3.common.PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED -> "Video format not supported on this device."
+                    else -> "Playback failed. ${error.errorCodeName}"
+                }
+            }
+            override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
+                audioOpts = audioOptions(tracks)
+                subOpts = subOptions(tracks)
+            }
         }
         exo.addListener(listener)
         onDispose {
@@ -266,10 +308,11 @@ fun PlayerScreen(
             delay(500)
         }
     }
-    // auto-hide
-    LaunchedEffect(showUI, playing, sheet, uiPoke) {
-        if (showUI && playing && sheet == null && !locked) { delay(3400); showUI = false }
+    // auto-hide — never while buffering/errored, so a stuck load always leaves controls reachable.
+    LaunchedEffect(showUI, playing, sheet, uiPoke, buffering, playerError) {
+        if (showUI && playing && sheet == null && !locked && !buffering && playerError == null) { delay(3400); showUI = false }
     }
+    LaunchedEffect(buffering) { if (buffering) { showUI = true; uiPoke++ } }
 
     fun enterPip() {
         if (android.os.Build.VERSION.SDK_INT >= 26 && activity != null) {
@@ -285,11 +328,14 @@ fun PlayerScreen(
     fun applySub(idx: Int) {
         subIndex = idx
         val on = idx != 0
-        exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()
-            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, !on)
-            .setPreferredTextLanguage(if (on) "en" else null)
-            .setSelectUndeterminedTextLanguage(on)
-            .build()
+        var b = exo.trackSelectionParameters.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_TEXT, !on)
+        val o = if (on) subOpts.getOrNull(idx - 1) else null
+        b = if (o != null) {
+            b.setOverrideForType(androidx.media3.common.TrackSelectionOverride(o.group.mediaTrackGroup, o.trackIndex))
+        } else {
+            b.setPreferredTextLanguage(if (on) "en" else null).setSelectUndeterminedTextLanguage(on)
+        }
+        exo.trackSelectionParameters = b.build()
     }
     fun applySpeed(s: Float) { speed = s; exo.setPlaybackSpeed(s) }
     fun applyAudio(i: Int) {
@@ -298,9 +344,76 @@ fun PlayerScreen(
             .setOverrideForType(androidx.media3.common.TrackSelectionOverride(o.group.mediaTrackGroup, o.trackIndex)).build()
     }
 
-    LaunchedEffect(exo) { if (subtitlesDefault) applySub(1) }
+    // Newly loaded (local file or online download) subtitle awaiting selection once its
+    // track shows up in subOpts after the player re-reads the media item.
+    var pendingSubSelect by remember { mutableStateOf(false) }
+    fun addSubtitle(uri: Uri, mime: String, label: String) {
+        val current = exo.currentMediaItem ?: return
+        val sub = MediaItem.SubtitleConfiguration.Builder(uri)
+            .setMimeType(mime)
+            .setLanguage("en")
+            .setLabel(label)
+            .build()
+        val existing = current.localConfiguration?.subtitleConfigurations.orEmpty()
+        val newItem = current.buildUpon().setSubtitleConfigurations(existing + sub).build()
+        pendingSubSelect = true
+        exo.replaceMediaItem(0, newItem)
+    }
+    LaunchedEffect(subOpts) {
+        if (pendingSubSelect && subOpts.isNotEmpty()) {
+            pendingSubSelect = false
+            applySub(subOpts.size)
+        }
+    }
 
-    val subTracks = listOf("Off", if (subtitleUrl != null) "English  ·  ${subtitleUrl.substringAfterLast('/')}" else "English (auto)", "English (SDH)", "Español")
+    var subQuery by remember { mutableStateOf(title) }
+    var subSearching by remember { mutableStateOf(false) }
+    var subSearchError by remember { mutableStateOf<String?>(null) }
+    var subResults by remember { mutableStateOf<List<xyz.devnerd.anmediaplayer.data.OnlineSubtitle>>(emptyList()) }
+    val subScope = rememberCoroutineScope()
+    fun searchOnlineSubs() {
+        if (subQuery.isBlank()) return
+        subSearching = true
+        subSearchError = null
+        subScope.launch {
+            val result = withContext(kotlinx.coroutines.Dispatchers.IO) { xyz.devnerd.anmediaplayer.data.OpenSubtitlesApi.search(subQuery) }
+            subSearching = false
+            result.onSuccess { subResults = it; if (it.isEmpty()) subSearchError = "No subtitles found." }
+                .onFailure { subSearchError = it.message ?: "Search failed." }
+        }
+    }
+    fun pickOnlineSub(i: Int) {
+        val r = subResults.getOrNull(i) ?: return
+        subScope.launch {
+            val result = withContext(kotlinx.coroutines.Dispatchers.IO) { xyz.devnerd.anmediaplayer.data.OpenSubtitlesApi.download(r.fileId) }
+            result.onSuccess { dl -> addSubtitle(Uri.parse(dl.url), subtitleMime(dl.fileName), r.label); sheet = null }
+                .onFailure { subSearchError = it.message ?: "Download failed." }
+        }
+    }
+    val pickSubtitleFile = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            runCatching { context.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+            val name = context.contentResolver.query(uri, null, null, null, null)?.use { c ->
+                val idx = c.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                if (c.moveToFirst() && idx >= 0) c.getString(idx) else null
+            } ?: uri.lastPathSegment ?: "subtitle.srt"
+            addSubtitle(uri, subtitleMime(name), name)
+            sheet = null
+        }
+    }
+
+    var defaultSubApplied by remember(streamUrl) { mutableStateOf(false) }
+    LaunchedEffect(exo) { if (subtitlesDefault) applySub(1) }
+    // Re-apply once real text tracks are known, so the explicit override matches what's
+    // actually selected (the initial applySub above only has a language-guess fallback).
+    LaunchedEffect(subOpts) {
+        if (subtitlesDefault && !defaultSubApplied && subOpts.isNotEmpty()) {
+            defaultSubApplied = true
+            applySub(1)
+        }
+    }
+
+    val subTracks = listOf("Off") + subOpts.map { it.label }
     val speeds = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f)
     val resizes = listOf("fit" to "Fit", "fill" to "Fill", "zoom" to "Zoom")
 
@@ -386,7 +499,17 @@ fun PlayerScreen(
                 update = { it.resizeMode = resizeMode },
                 modifier = Modifier.fillMaxSize(),
             )
-            if (buffering) CircularProgressIndicator(color = Color.White)
+            if (buffering && playerError == null) CircularProgressIndicator(color = Color.White)
+            playerError?.let { msg ->
+                Column(
+                    Modifier.padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Icon(Icons.Outlined.ErrorOutline, null, tint = Color.White, modifier = Modifier.size(40.dp))
+                    Text(msg, style = MaterialTheme.typography.bodyMedium, color = Color.White, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                }
+            }
         }
 
         // Single gesture overlay ABOVE the PlayerView (PlayerView consumes touch).
@@ -535,7 +658,24 @@ fun PlayerScreen(
     }
 
     when (sheet) {
-        PlayerSheet.SUBTITLE -> TrackSheet("Subtitles", subTracks, subIndex, onPick = { applySub(it); sheet = null }, onDismiss = { sheet = null }, footer = "Load subtitle file…")
+        PlayerSheet.SUBTITLE -> TrackSheet(
+            "Subtitles", subTracks, subIndex,
+            onPick = { applySub(it); sheet = null },
+            onDismiss = { sheet = null },
+            footer = "Load subtitle file…",
+            onFooter = { sheet = PlayerSheet.SUBTITLE_LOAD },
+        )
+        PlayerSheet.SUBTITLE_LOAD -> SubtitleLoadSheet(
+            query = subQuery,
+            onQueryChange = { subQuery = it },
+            onSearch = { searchOnlineSubs() },
+            searching = subSearching,
+            error = subSearchError,
+            results = subResults,
+            onPickResult = { pickOnlineSub(it) },
+            onPickFile = { pickSubtitleFile.launch(arrayOf("*/*")) },
+            onDismiss = { sheet = null },
+        )
         PlayerSheet.AUDIO -> TrackSheet(
             "Audio track",
             audioOpts.map { it.label }.ifEmpty { listOf("Default") },

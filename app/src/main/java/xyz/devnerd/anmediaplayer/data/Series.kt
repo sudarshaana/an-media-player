@@ -23,7 +23,15 @@ data class SeasonRef(val number: Int, val rawName: String, val path: List<String
 }
 
 /** A flat playback entry across seasons. */
-data class EpisodeRef(val path: List<String>, val file: String, val durSec: Int)
+data class EpisodeRef(
+    val path: List<String>,
+    val file: String,
+    val durSec: Int,
+    /** Local file/content URI — set for on-device playlists (Local Files tab) so playback never hits the server. */
+    val directUrl: String? = null,
+    /** Taller-than-wide source — rotates the player to portrait instead of forcing landscape. */
+    val portrait: Boolean = false,
+)
 
 /** Season folders under a series (or the folder itself if episodes are flat). Empty = not a series. */
 fun detectSeasons(entries: List<Entry>, seriesPath: List<String>): List<SeasonRef> {

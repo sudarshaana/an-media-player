@@ -2,6 +2,9 @@ package xyz.devnerd.anmediaplayer.data
 
 import androidx.compose.runtime.mutableStateMapOf
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import okhttp3.Credentials
 import okhttp3.OkHttpClient
@@ -15,8 +18,8 @@ object ServerHealth {
     val status = mutableStateMapOf<String, ServerStatus>()
 
     private val client = OkHttpClient.Builder()
-        .connectTimeout(6, TimeUnit.SECONDS)
-        .readTimeout(6, TimeUnit.SECONDS)
+        .connectTimeout(2, TimeUnit.SECONDS)
+        .readTimeout(2, TimeUnit.SECONDS)
         .build()
 
     suspend fun check(server: Server) = withContext(Dispatchers.IO) {
@@ -32,8 +35,8 @@ object ServerHealth {
         status[server.id] = if (online) ServerStatus.ONLINE else ServerStatus.OFFLINE
     }
 
-    suspend fun checkAll(servers: List<Server>) {
-        servers.forEach { check(it) }
+    suspend fun checkAll(servers: List<Server>) = coroutineScope {
+        servers.map { async { check(it) } }.awaitAll()
     }
 
     /** Confirmed offline (not merely unchecked / still checking). */

@@ -25,8 +25,11 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.AspectRatio
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.FileOpen
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Repeat
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Subtitles
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -178,7 +181,7 @@ fun PlaylistSheet(items: List<String>, current: Int, onPick: (Int) -> Unit, onDi
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TrackSheet(title: String, tracks: List<String>, selected: Int, onPick: (Int) -> Unit, onDismiss: () -> Unit, footer: String? = null) {
+fun TrackSheet(title: String, tracks: List<String>, selected: Int, onPick: (Int) -> Unit, onDismiss: () -> Unit, footer: String? = null, onFooter: (() -> Unit)? = null) {
     PlayerDialog(onDismiss) {
         SheetHeader(title, onDismiss)
         Column(Modifier.verticalScroll(rememberScrollState())) {
@@ -204,10 +207,75 @@ fun TrackSheet(title: String, tracks: List<String>, selected: Int, onPick: (Int)
                     footer,
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.clickable { onDismiss() }.padding(horizontal = 24.dp, vertical = 12.dp),
+                    modifier = Modifier.clickable { (onFooter ?: onDismiss)() }.padding(horizontal = 24.dp, vertical = 12.dp),
                 )
             }
             Box(Modifier.height(32.dp))
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SubtitleLoadSheet(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onSearch: () -> Unit,
+    searching: Boolean,
+    error: String?,
+    results: List<xyz.devnerd.anmediaplayer.data.OnlineSubtitle>,
+    onPickResult: (Int) -> Unit,
+    onPickFile: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    PlayerDialog(onDismiss) {
+        SheetHeader("Load subtitle", onDismiss)
+        Column(Modifier.verticalScroll(rememberScrollState())) {
+            MoreAction(Icons.Outlined.FileOpen, "Choose file from device", onPickFile)
+            androidx.compose.material3.HorizontalDivider(Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+            Text(
+                "Search online",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 4.dp, bottom = 8.dp),
+            )
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                androidx.compose.material3.OutlinedTextField(
+                    value = query,
+                    onValueChange = onQueryChange,
+                    singleLine = true,
+                    placeholder = { Text("Search title…") },
+                    modifier = Modifier.weight(1f),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
+                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { onSearch() }),
+                )
+                IconButton(onClick = onSearch) { Icon(Icons.Outlined.Search, "Search") }
+            }
+            when {
+                searching -> Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                    androidx.compose.material3.CircularProgressIndicator(modifier = Modifier.size(28.dp))
+                }
+                error != null -> Text(error, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp))
+                results.isEmpty() -> Text("No results yet.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp))
+                else -> results.forEachIndexed { i, r ->
+                    Row(
+                        Modifier.fillMaxWidth().clickable { onPickResult(i) }.padding(horizontal = 24.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        Icon(Icons.Outlined.Subtitles, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Column(Modifier.weight(1f)) {
+                            Text(r.label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                            Text(r.language.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+            Box(Modifier.height(24.dp))
         }
     }
 }

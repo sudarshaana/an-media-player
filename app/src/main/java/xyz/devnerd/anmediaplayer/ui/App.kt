@@ -28,6 +28,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import xyz.devnerd.anmediaplayer.data.AppRepo
 import xyz.devnerd.anmediaplayer.data.DownloadsStore
+import xyz.devnerd.anmediaplayer.data.EpisodeRef
 import xyz.devnerd.anmediaplayer.data.prettyName
 import xyz.devnerd.anmediaplayer.settings.AppSettings
 import xyz.devnerd.anmediaplayer.settings.BrowseView
@@ -130,6 +131,7 @@ fun App(
                     onOpenBrowse = { server, path -> navController.navigate(browseRoute(server, path)) },
                     onOpenServer = { navController.navigate(browseRoute(it, emptyList())) },
                     onPlay = { item -> playback = PlaybackRequest(item.server, item.path, item.file, item.durSec) },
+                    onEditServer = { navController.navigate("$ROUTE_EDIT/$it") },
                 )
             }
             composable(TopDest.SERVERS.route) {
@@ -145,8 +147,20 @@ fun App(
                 DownloadsScreen(
                     modifier = Modifier.fillMaxSize(),
                     onPlay = { d ->
-                        playback = if (d.localUri != null) PlaybackRequest(d.server, d.path, d.file, d.durSec, directUrl = d.localUri)
+                        playback = if (d.localUri != null) PlaybackRequest(d.server, d.path, d.file, d.durSec, directUrl = d.localUri, localCoverUrl = d.coverUrl)
                         else PlaybackRequest(d.server, d.path, d.file, d.durSec)
+                    },
+                    onPlayLocal = { v, all ->
+                        val playlist = all.map { lv ->
+                            EpisodeRef(
+                                listOf(lv.id.toString()), lv.displayName, (lv.durationMs / 1000).toInt(),
+                                directUrl = lv.uri.toString(), portrait = lv.height > lv.width,
+                            )
+                        }
+                        playback = PlaybackRequest(
+                            "local", listOf(v.id.toString()), v.displayName, (v.durationMs / 1000).toInt(),
+                            playlist = playlist, directUrl = v.uri.toString(), portrait = v.height > v.width,
+                        )
                     },
                 )
             }

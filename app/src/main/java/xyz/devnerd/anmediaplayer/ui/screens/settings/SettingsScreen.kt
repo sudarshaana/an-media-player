@@ -165,7 +165,7 @@ fun SettingsScreen(settings: AppSettings, actions: SettingsActions, modifier: Mo
 @Composable
 private fun SettingGroup(label: String, content: @Composable () -> Unit) {
     Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 20.dp, top = 14.dp, bottom = 6.dp))
-    Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
         // focusGroup lets D-pad directional search step INTO the nested controls
         // (segmented buttons, accent swatches) instead of skipping the whole group
         // and jumping to the bottom nav bar on TV.

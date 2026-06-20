@@ -20,6 +20,6 @@ enum class TopDest(
 ) {
     HOME("home", "Home", Icons.Filled.Home, Icons.Outlined.Home),
     SERVERS("servers", "Servers", Icons.Filled.Dns, Icons.Outlined.Dns),
-    DOWNLOADS("downloads", "Downloads", Icons.Filled.Download, Icons.Outlined.Download),
+    DOWNLOADS("downloads", "Files", Icons.Filled.Download, Icons.Outlined.Download),
     SETTINGS("settings", "Settings", Icons.Filled.Settings, Icons.Outlined.Settings),
 }
