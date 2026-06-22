@@ -68,6 +68,26 @@ private fun detectParser(url: String, proto: String?): String? = when {
     else -> null
 }
 
+/**
+ * Live URL-pattern guess is just a hint; this does the real check on Connect —
+ * fetches the root folder and falls back to "WEB" (raw-browser mode) when no
+ * listing structure (h5ai/autoindex) is found, instead of showing an empty folder.
+ */
+private suspend fun probeParser(url: String, proto: String?, auth: Boolean, user: String, pass: String): String {
+    if (proto != "HTTP" && proto != "HTTPS") return detectParser(url, proto) ?: (proto ?: "auto")
+    val probeServer = xyz.devnerd.anmediaplayer.data.Server(
+        id = "", name = "", url = url.trim(), protocol = proto, auth = auth,
+        user = user.ifBlank { null }, password = pass.ifBlank { null },
+        parser = "auto", lastUsed = "", favorite = false,
+    )
+    return try {
+        val entries = xyz.devnerd.anmediaplayer.data.source.HttpMediaSource().list(probeServer, emptyList())
+        if (entries.isNotEmpty()) detectParser(url, proto) ?: "Apache / nginx index" else "WEB"
+    } catch (e: Exception) {
+        "WEB"
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConnectScreen(
@@ -194,9 +214,9 @@ fun ConnectScreen(
                     if (connecting) return@Button
                     connecting = true
                     scope.launch {
-                        val server = buildServer(name, url, proto, parser, needAuth, user, pass, editServer)
+                        val resolvedParser = probeParser(url, proto, needAuth, user, pass)
+                        val server = buildServer(name, url, proto, resolvedParser, needAuth, user, pass, editServer)
                         AppRepo.addServer(server)
-                        kotlinx.coroutines.delay(400)
                         onConnected(server.id)
                     }
                 },

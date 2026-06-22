@@ -31,7 +31,9 @@ class HttpMediaSource(
         }.build()
         client.newCall(req).execute().use { resp ->
             if (!resp.isSuccessful) error("HTTP ${resp.code} for $url")
-            val body = resp.body?.string().orEmpty()
+            // Force UTF-8 regardless of the Content-Type charset (many h5ai/autoindex servers
+            // mislabel as ISO-8859-1 while actually emitting UTF-8 filenames, causing mojibake).
+            val body = resp.body?.bytes()?.toString(Charsets.UTF_8).orEmpty()
             val scraped = parseAnchors(url, body)
             if (scraped.isNotEmpty()) sortEntries(scraped)
             else sortEntries(tryH5ai(server, path, url))
@@ -153,7 +155,7 @@ class HttpMediaSource(
         return runCatching {
             client.newCall(req).execute().use { r ->
                 if (!r.isSuccessful) return emptyList()
-                val json = org.json.JSONObject(r.body?.string().orEmpty())
+                val json = org.json.JSONObject(r.body?.bytes()?.toString(Charsets.UTF_8).orEmpty())
                 val items = json.optJSONObject("items")?.optJSONArray("items") ?: return emptyList()
                 buildList {
                     for (i in 0 until items.length()) {

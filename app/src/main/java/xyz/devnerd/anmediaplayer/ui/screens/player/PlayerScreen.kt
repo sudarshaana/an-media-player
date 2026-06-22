@@ -61,6 +61,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -73,7 +76,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -225,6 +227,7 @@ fun PlayerScreen(
     var sheet by remember { mutableStateOf<PlayerSheet?>(null) }
     var showPlaylist by remember { mutableStateOf(false) }
     var showMore by remember { mutableStateOf(false) }
+    var showInfo by remember { mutableStateOf(false) }
     var repeatOne by remember { mutableStateOf(false) }
     var scrubbing by remember { mutableStateOf(false) }
     var seekFx by remember { mutableStateOf<SeekFx?>(null) }
@@ -279,6 +282,16 @@ fun PlayerScreen(
         }
     }
 
+    // Pause playback when app goes to background, unless PiP keeps the player visible.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, exo) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_PAUSE && activity?.isInPictureInPictureMode != true) exo.pause()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     // Hand off to / from Cast when a session connects.
     DisposableEffect(castPlayer, streamUrl) {
         val l = object : androidx.media3.cast.SessionAvailabilityListener {
@@ -308,9 +321,9 @@ fun PlayerScreen(
             delay(500)
         }
     }
-    // auto-hide — never while buffering/errored, so a stuck load always leaves controls reachable.
-    LaunchedEffect(showUI, playing, sheet, uiPoke, buffering, playerError) {
-        if (showUI && playing && sheet == null && !locked && !buffering && playerError == null) { delay(3400); showUI = false }
+    // auto-hide — never while buffering/errored or the More popup is open, so controls stay reachable.
+    LaunchedEffect(showUI, playing, sheet, uiPoke, buffering, playerError, showMore) {
+        if (showUI && playing && sheet == null && !locked && !buffering && playerError == null && !showMore) { delay(3400); showUI = false }
     }
     LaunchedEffect(buffering) { if (buffering) { showUI = true; uiPoke++ } }
 
@@ -492,11 +505,10 @@ fun PlayerScreen(
                         useController = false
                         isClickable = false
                         isFocusable = false
-                        setKeepScreenOn(keepScreenOn)
                         setShutterBackgroundColor(android.graphics.Color.BLACK)
                     }
                 },
-                update = { it.resizeMode = resizeMode },
+                update = { it.resizeMode = resizeMode; it.keepScreenOn = keepScreenOn && playing },
                 modifier = Modifier.fillMaxSize(),
             )
             if (buffering && playerError == null) CircularProgressIndicator(color = Color.White)
@@ -540,13 +552,21 @@ fun PlayerScreen(
                 }
                 .pointerInput(locked, cinema) {
                     if (locked || cinema) return@pointerInput
+                    val edgeMargin = 56.dp.toPx()
                     var left = true
                     var v = 0.5f
+                    var active = false
                     detectVerticalDragGestures(
-                        onDragStart = { off -> left = off.x < size.width / 2f; v = if (left) currentBrightness() else currentVolume(); gesture = Gesture(left, v) },
+                        onDragStart = { off ->
+                            active = off.y in edgeMargin..(size.height - edgeMargin)
+                            left = off.x < size.width / 2f
+                            v = if (left) currentBrightness() else currentVolume()
+                            gesture = if (active) Gesture(left, v) else null
+                        },
                         onDragEnd = { gesture = null },
                         onDragCancel = { gesture = null },
                     ) { _, dy ->
+                        if (!active) return@detectVerticalDragGestures
                         v = (v - dy / 600f).coerceIn(0f, 1f)
                         if (left) applyBrightness(v) else applyVolume(v)
                         gesture = Gesture(left, v)
@@ -565,7 +585,7 @@ fun PlayerScreen(
         }
 
         gesture?.let { g ->
-            Box(Modifier.fillMaxSize().padding(horizontal = 32.dp), contentAlignment = if (g.left) Alignment.CenterStart else Alignment.CenterEnd) {
+            Box(Modifier.fillMaxSize().padding(horizontal = 32.dp), contentAlignment = if (g.left) Alignment.CenterEnd else Alignment.CenterStart) {
                 Column(
                     Modifier.clip(RoundedCornerShape(16.dp)).background(Color.Black.copy(alpha = 0.55f)).padding(horizontal = 12.dp, vertical = 16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -606,8 +626,46 @@ fun PlayerScreen(
             return@Box
         }
 
+        // Scrim behind the More popup — any tap outside it closes the popup.
+        if (showMore) {
+            Box(Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures { showMore = false } })
+        }
+
         AnimatedVisibility(showUI, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.TopCenter)) {
-            TopChrome(np.primary, subtitleLabel, cinema, onClose, onPlaylist = if (playlist.size > 1) ({ showPlaylist = true }) else null, onPiP = { enterPip() }, onMore = { showMore = true }, castSlot = if (castContext != null && !isTv) ({ CastRouteButton() }) else null)
+            Box(Modifier.fillMaxWidth()) {
+                TopChrome(
+                    np.primary, subtitleLabel, cinema, onClose,
+                    onPlaylist = if (playlist.size > 1) ({ showPlaylist = true }) else null,
+                    onMore = { showMore = !showMore },
+                    subOn = subIndex > 0,
+                    onSubtitle = { sheet = PlayerSheet.SUBTITLE },
+                    onAudio = { sheet = PlayerSheet.AUDIO },
+                )
+                Box(Modifier.fillMaxWidth().padding(top = 48.dp, end = 4.dp), contentAlignment = Alignment.TopEnd) {
+                    AnimatedVisibility(showMore, enter = fadeIn(), exit = fadeOut()) {
+                        val vf = exo.videoFormat
+                        MoreActionsBar(
+                            repeatOne = repeatOne,
+                            onToggleRepeat = { repeatOne = !repeatOne; exo.repeatMode = if (repeatOne) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF },
+                            onLock = { locked = true; showUI = false; showMore = false },
+                            onResize = { sheet = PlayerSheet.RESIZE; showMore = false },
+                            onSpeed = { sheet = PlayerSheet.SPEED; showMore = false },
+                            onShare = {
+                                showMore = false
+                                val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(android.content.Intent.EXTRA_TEXT, streamUrl)
+                                }
+                                context.startActivity(android.content.Intent.createChooser(send, "Share"))
+                            },
+                            onPiP = { showMore = false; enterPip() },
+                            onInfo = { showInfo = true; showMore = false },
+                            onDownload = onDownload?.let { dl -> { dl(); showMore = false } },
+                            castSlot = if (castContext != null && !isTv) ({ CastRouteButton() }) else null,
+                        )
+                    }
+                }
+            }
         }
         if (!minimal) {
             AnimatedVisibility(showUI, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.Center)) {
@@ -618,19 +676,18 @@ fun PlayerScreen(
             AnimatedVisibility(showUI, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.BottomCenter)) {
                 CinemaDeck(
                     np = np, hasPrev = hasPrev, hasNext = hasNext, time = time, duration = duration, pct = pct, buffered = buffered,
-                    playing = playing, subOn = subIndex > 0, speed = speed, resizeLabel = resizes.first { it.first == resize }.second,
+                    playing = playing,
                     onScrub = { f -> scrubbing = true; time = f * duration }, onScrubEnd = { exo.seekTo((time * 1000).toLong()); scrubbing = false; poke() },
                     onPrev = onPrev, onNext = onNext, onSeek = { seekBy(it) }, onToggle = { togglePlay() },
-                    onSheet = { sheet = it }, onLock = { locked = true; showUI = false },
                 )
             }
         } else {
             AnimatedVisibility(showUI, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.BottomCenter)) {
                 BottomControls(
                     minimal = minimal, time = time, duration = duration, pct = pct, buffered = buffered, scrubbing = scrubbing,
-                    playing = playing, subOn = subIndex > 0, speed = speed, resizeLabel = resizes.first { it.first == resize }.second,
+                    playing = playing, subOn = subIndex > 0, speed = speed,
                     onScrub = { f -> scrubbing = true; time = f * duration }, onScrubEnd = { exo.seekTo((time * 1000).toLong()); scrubbing = false; poke() },
-                    onToggle = { togglePlay() }, onSheet = { sheet = it }, onLock = { locked = true; showUI = false },
+                    onToggle = { togglePlay() }, onSheet = { sheet = it },
                 )
             }
         }
@@ -690,27 +747,26 @@ fun PlayerScreen(
 
     if (showPlaylist) PlaylistSheet(playlist, currentIndex, onPick = { onSelectIndex(it); showPlaylist = false }, onDismiss = { showPlaylist = false })
 
-    if (showMore) {
+    if (showInfo) {
         val vf = exo.videoFormat
-        MoreSheet(
+        InfoDialog(
             resolution = vf?.let { if (it.width > 0) "${it.width}×${it.height}" else null },
             videoCodec = vf?.codecs ?: vf?.sampleMimeType?.substringAfter('/')?.uppercase(),
             audioLabel = audioOpts.firstOrNull { it.selected }?.label,
-            repeatOne = repeatOne,
-            onToggleRepeat = { repeatOne = !repeatOne; exo.repeatMode = if (repeatOne) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF },
-            onLock = { locked = true; showUI = false; showMore = false },
-            onResize = { sheet = PlayerSheet.RESIZE; showMore = false },
-            onDownload = onDownload?.let { dl -> { dl(); showMore = false } },
-            onDismiss = { showMore = false },
+            onDismiss = { showInfo = false },
         )
     }
 }
 
 @Composable
-private fun TopChrome(title: String, subtitle: String, cinema: Boolean, onClose: () -> Unit, onPlaylist: (() -> Unit)? = null, onPiP: (() -> Unit)? = null, onMore: (() -> Unit)? = null, castSlot: (@Composable () -> Unit)? = null) {
+private fun TopChrome(
+    title: String, subtitle: String, cinema: Boolean, onClose: () -> Unit,
+    onPlaylist: (() -> Unit)? = null, onMore: (() -> Unit)? = null,
+    subOn: Boolean = false, onSubtitle: (() -> Unit)? = null, onAudio: (() -> Unit)? = null,
+) {
     Row(
         Modifier.fillMaxWidth()
-            .then(if (cinema) Modifier else Modifier.background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.6f), Color.Transparent))))
+            .then(if (cinema) Modifier else Modifier.background(Color.Black.copy(alpha = 0.45f)))
             .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 28.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -720,8 +776,8 @@ private fun TopChrome(title: String, subtitle: String, cinema: Boolean, onClose:
             Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f), maxLines = 1)
         }
         if (onPlaylist != null) IconButton(onClick = onPlaylist, modifier = Modifier.focusHighlight(CircleShape)) { Icon(Icons.AutoMirrored.Outlined.PlaylistPlay, "Playlist", tint = Color.White) }
-        if (castSlot != null) castSlot() else IconButton(onClick = {}, enabled = false) { Icon(Icons.Outlined.Cast, "Cast", tint = Color.White.copy(alpha = 0.4f)) }
-        IconButton(onClick = { onPiP?.invoke() }, modifier = Modifier.focusHighlight(CircleShape)) { Icon(Icons.Outlined.PictureInPictureAlt, "PiP", tint = Color.White) }
+        if (onSubtitle != null) IconButton(onClick = onSubtitle, modifier = Modifier.focusHighlight(CircleShape)) { Icon(Icons.Outlined.ClosedCaption, "Subtitles", tint = if (subOn) MaterialTheme.colorScheme.primary else Color.White) }
+        if (onAudio != null) IconButton(onClick = onAudio, modifier = Modifier.focusHighlight(CircleShape)) { Icon(Icons.AutoMirrored.Filled.VolumeUp, "Audio", tint = Color.White) }
         IconButton(onClick = { onMore?.invoke() }, modifier = Modifier.focusHighlight(CircleShape)) { Icon(Icons.Outlined.MoreVert, "More", tint = Color.White) }
     }
 }
@@ -826,32 +882,10 @@ fun Scrubber(time: Float, duration: Int, pct: Float, buffered: Float, scrubbing:
 }
 
 @Composable
-private fun ControlButton(icon: ImageVector, label: String, active: Boolean, onDark: Color, cinema: Boolean, onClick: () -> Unit) {
-    Column(
-        Modifier.focusHighlight(RoundedCornerShape(10.dp)).clip(RoundedCornerShape(10.dp)).clickable { onClick() }.padding(horizontal = 8.dp, vertical = 6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp),
-    ) {
-        Icon(icon, label, tint = if (active) MaterialTheme.colorScheme.primary else onDark, modifier = Modifier.size(22.dp))
-        Text(label, style = MaterialTheme.typography.labelSmall, color = if (active) MaterialTheme.colorScheme.primary else if (cinema) MaterialTheme.colorScheme.onSurfaceVariant else Color.White.copy(alpha = 0.8f))
-    }
-}
-
-@Composable
-private fun ControlRow(subOn: Boolean, speed: Float, resizeLabel: String, onDark: Color, cinema: Boolean, onSheet: (PlayerSheet) -> Unit, onLock: () -> Unit) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        ControlButton(Icons.Outlined.AspectRatio, resizeLabel, resizeLabel != "Fit", onDark, cinema) { onSheet(PlayerSheet.RESIZE) }
-        ControlButton(Icons.Outlined.ClosedCaption, if (subOn) "On" else "Subtitles", subOn, onDark, cinema) { onSheet(PlayerSheet.SUBTITLE) }
-        ControlButton(Icons.AutoMirrored.Filled.VolumeUp, "Audio", false, onDark, cinema) { onSheet(PlayerSheet.AUDIO) }
-        ControlButton(Icons.Outlined.Speed, if (speed == 1f) "Speed" else "${speed}×", speed != 1f, onDark, cinema) { onSheet(PlayerSheet.SPEED) }
-        ControlButton(Icons.Outlined.Lock, "Lock", false, onDark, cinema) { onLock() }
-    }
-}
-
-@Composable
 private fun BottomControls(
     minimal: Boolean, time: Float, duration: Int, pct: Float, buffered: Float, scrubbing: Boolean,
-    playing: Boolean, subOn: Boolean, speed: Float, resizeLabel: String,
-    onScrub: (Float) -> Unit, onScrubEnd: () -> Unit, onToggle: () -> Unit, onSheet: (PlayerSheet) -> Unit, onLock: () -> Unit,
+    playing: Boolean, subOn: Boolean, speed: Float,
+    onScrub: (Float) -> Unit, onScrubEnd: () -> Unit, onToggle: () -> Unit, onSheet: (PlayerSheet) -> Unit,
 ) {
     Column(
         Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f))))
@@ -867,16 +901,14 @@ private fun BottomControls(
             }
         }
         Scrubber(time, duration, pct, buffered, scrubbing, Color.White, cinema = false, onScrub = onScrub, onScrubEnd = onScrubEnd)
-        if (!minimal) Box(Modifier.padding(top = 6.dp)) { ControlRow(subOn, speed, resizeLabel, Color.White, cinema = false, onSheet = onSheet, onLock = onLock) }
     }
 }
 
 @Composable
 private fun CinemaDeck(
     np: xyz.devnerd.anmediaplayer.data.PrettyName, hasPrev: Boolean, hasNext: Boolean, time: Float, duration: Int, pct: Float, buffered: Float,
-    playing: Boolean, subOn: Boolean, speed: Float, resizeLabel: String,
+    playing: Boolean,
     onScrub: (Float) -> Unit, onScrubEnd: () -> Unit, onPrev: () -> Unit, onNext: () -> Unit, onSeek: (Int) -> Unit, onToggle: () -> Unit,
-    onSheet: (PlayerSheet) -> Unit, onLock: () -> Unit,
 ) {
     Column(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)).background(MaterialTheme.colorScheme.surface).padding(20.dp),
@@ -896,7 +928,6 @@ private fun CinemaDeck(
             SeekButton(forward = true, tint = MaterialTheme.colorScheme.onSurface, iconSize = 24.dp, onSeek = onSeek)
             IconButton(onClick = onNext, enabled = hasNext, modifier = Modifier.focusHighlight(CircleShape)) { Icon(Icons.Filled.SkipNext, "Next", tint = MaterialTheme.colorScheme.onSurface) }
         }
-        ControlRow(subOn, speed, resizeLabel, MaterialTheme.colorScheme.onSurface, cinema = true, onSheet = onSheet, onLock = onLock)
     }
 }
 

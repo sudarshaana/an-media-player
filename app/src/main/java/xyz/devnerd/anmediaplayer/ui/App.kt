@@ -200,6 +200,21 @@ fun App(
                 val server = entry.arguments?.getString("server") ?: "home"
                 val raw = entry.arguments?.getString("path") ?: "_"
                 val path = if (raw == "_") emptyList() else Uri.decode(raw).split("/")
+                val serverObj = AppRepo.serverById(server)
+                if (serverObj != null && serverObj.parser == "WEB") {
+                    xyz.devnerd.anmediaplayer.ui.screens.browser.WebViewBrowserScreen(
+                        server = serverObj,
+                        onPlay = { url ->
+                            playback = PlaybackRequest(
+                                server, emptyList(), Uri.decode(url.substringBefore('?').substringAfterLast('/')), 0,
+                                directUrl = url,
+                            )
+                        },
+                        onUp = { navController.popBackStack() },
+                        onNavVisible = { navVisible = it },
+                    )
+                    return@composable
+                }
                 BrowserScreen(
                     serverId = server,
                     path = path,
@@ -214,10 +229,10 @@ fun App(
                     onToggleBookmark = { s, p -> AppRepo.toggleBookmark(s, p) },
                     onOpenFolder = { s, p -> navController.navigate(browseRoute(s, p)) },
                     onPlay = play,
-                    onDownload = { e ->
+                    onDownload = { e, downloadPath ->
                         val np = prettyName(e.name)
-                        val url = xyz.devnerd.anmediaplayer.data.MediaRepo.fileUrl(server, path, e.name)
-                        DownloadsStore.enqueue(appContext, server, path, e.name, np.primary, np.secondary.ifBlank { e.name }, e.size ?: 0, e.durSec ?: 0, url, settings.wifiOnly, settings.downloadDir)
+                        val url = xyz.devnerd.anmediaplayer.data.MediaRepo.fileUrl(server, downloadPath, e.name)
+                        DownloadsStore.enqueue(appContext, server, downloadPath, e.name, np.primary, np.secondary.ifBlank { e.name }, e.size ?: 0, e.durSec ?: 0, url, settings.wifiOnly, settings.downloadDir)
                         android.widget.Toast.makeText(appContext, "Added to downloads", android.widget.Toast.LENGTH_SHORT).show()
                     },
                     onSetView = { g -> settingsActions.onBrowseView(if (g) BrowseView.GRID else BrowseView.LIST) },

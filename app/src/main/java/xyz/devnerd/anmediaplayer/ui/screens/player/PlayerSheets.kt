@@ -1,6 +1,8 @@
 package xyz.devnerd.anmediaplayer.ui.screens.player
 
 import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Color
+import xyz.devnerd.anmediaplayer.ui.components.focusHighlight
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,19 +18,25 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.outlined.AspectRatio
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.FileOpen
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.PictureInPictureAlt
 import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.Subtitles
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -52,7 +60,7 @@ private fun SheetHeader(title: String, onClose: () -> Unit) {
         Modifier.fillMaxWidth().padding(start = 24.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+        Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
         IconButton(onClick = onClose) { Icon(Icons.Outlined.Close, "Close", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
 }
@@ -75,38 +83,59 @@ private fun PlayerDialog(onDismiss: () -> Unit, content: @Composable androidx.co
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * Inline action strip (not a dialog) — sits directly on the player surface,
+ * under the top chrome, so the video stays fully visible and interactive.
+ */
 @Composable
-fun MoreSheet(
-    resolution: String?,
-    videoCodec: String?,
-    audioLabel: String?,
+fun MoreActionsBar(
     repeatOne: Boolean,
     onToggleRepeat: () -> Unit,
     onLock: () -> Unit,
     onResize: () -> Unit,
+    onSpeed: () -> Unit,
+    onShare: () -> Unit,
+    onPiP: () -> Unit,
+    onInfo: () -> Unit,
     onDownload: (() -> Unit)? = null,
-    onDismiss: () -> Unit,
+    castSlot: (@Composable () -> Unit)? = null,
 ) {
+    Box(
+        Modifier.padding(horizontal = 12.dp).clip(RoundedCornerShape(20.dp))
+            .background(Color.Black.copy(alpha = 0.78f)),
+    ) {
+        Row(
+            Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            MoreActionItem(
+                icon = if (repeatOne) Icons.Filled.Repeat else Icons.Outlined.Repeat,
+                label = "Repeat",
+                active = repeatOne,
+                onClick = onToggleRepeat,
+            )
+            if (onDownload != null) MoreActionItem(Icons.Outlined.Download, "Download", onClick = onDownload)
+            MoreActionItem(Icons.Outlined.Lock, "Lock", onClick = onLock)
+            MoreActionItem(Icons.Outlined.AspectRatio, "Resize", onClick = onResize)
+            MoreActionItem(Icons.Outlined.Speed, "Speed", onClick = onSpeed)
+            if (castSlot != null) MoreActionSlot("Cast", content = castSlot)
+            MoreActionItem(Icons.Outlined.PictureInPictureAlt, "Popup", onClick = onPiP)
+            MoreActionItem(Icons.Outlined.Share, "Share", onClick = onShare)
+            MoreActionItem(Icons.Outlined.Info, "Info", onClick = onInfo)
+        }
+    }
+}
+
+/** Small details dialog — opened via the Info action in [MoreActionsBar]. */
+@Composable
+fun InfoDialog(resolution: String?, videoCodec: String?, audioLabel: String?, onDismiss: () -> Unit) {
     PlayerDialog(onDismiss) {
-        SheetHeader("More", onDismiss)
-        Column(Modifier.verticalScroll(rememberScrollState())) {
-            Row(
-                Modifier.fillMaxWidth().clickable { onToggleRepeat() }.padding(horizontal = 24.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp),
-            ) {
-                androidx.compose.material3.Icon(Icons.Outlined.Repeat, null, tint = if (repeatOne) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Repeat", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
-                androidx.compose.material3.Switch(checked = repeatOne, onCheckedChange = { onToggleRepeat() })
-            }
-            if (onDownload != null) MoreAction(Icons.Outlined.Download, "Download", onDownload)
-            MoreAction(Icons.Outlined.Lock, "Lock screen", onLock)
-            MoreAction(Icons.Outlined.AspectRatio, "Resize", onResize)
-            androidx.compose.material3.HorizontalDivider(Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+        SheetHeader("Details", onDismiss)
+        Column {
             InfoRow("Resolution", resolution ?: "—")
             InfoRow("Video", videoCodec ?: "—")
             InfoRow("Audio", audioLabel ?: "—")
-            Box(Modifier.height(32.dp))
+            Box(Modifier.height(12.dp))
         }
     }
 }
@@ -119,6 +148,40 @@ private fun MoreAction(icon: androidx.compose.ui.graphics.vector.ImageVector, la
     ) {
         androidx.compose.material3.Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+    }
+}
+
+@Composable
+private fun MoreActionItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    active: Boolean = false,
+    onClick: () -> Unit,
+) {
+    MoreActionSlot(label, onClick = onClick) {
+        androidx.compose.material3.Icon(
+            icon, null,
+            tint = if (active) MaterialTheme.colorScheme.primary else Color.White,
+        )
+    }
+}
+
+@Composable
+private fun MoreActionSlot(
+    label: String,
+    onClick: (() -> Unit)? = null,
+    content: @Composable () -> Unit,
+) {
+    Column(
+        Modifier.width(72.dp)
+            .focusHighlight(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(16.dp))
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) { content() }
+        Text(label, style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.9f), maxLines = 1)
     }
 }
 

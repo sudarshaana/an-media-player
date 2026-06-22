@@ -303,7 +303,8 @@ object DownloadsStore {
         scope.launch { appCtx.repoStore.edit { it[KEY_DOWNLOADS] = serializeDownloads(snap) } }
     }
 
-    private fun fileFor(file: String) = java.io.File(appCtx.getExternalFilesDir(android.os.Environment.DIRECTORY_MOVIES), file.replace(Regex("[^A-Za-z0-9._-]"), "_"))
+    // Strip only path separators / filesystem-illegal chars; keep unicode (CJK, Bengali, accents, …) intact.
+    private fun fileFor(file: String) = java.io.File(appCtx.getExternalFilesDir(android.os.Environment.DIRECTORY_MOVIES), file.replace(Regex("[\\x00-\\x1f/\\\\:*?\"<>|]"), "_"))
 
     fun enqueue(ctx: Context, server: String, path: List<String>, file: String, title: String, sub: String, size: Long, durSec: Int, url: String, wifiOnly: Boolean, destDir: String? = null) {
         if (url.isBlank()) return
@@ -333,7 +334,7 @@ object DownloadsStore {
         val item = items[i]
         runCatching { fileFor(item.file).delete() }
         item.localUri?.takeIf { it.startsWith("content://") }?.let { uri ->
-            runCatching { androidx.documentfile.provider.DocumentFile.fromSingleUri(ctx, android.net.Uri.parse(uri))?.delete() }
+            runCatching { ctx.contentResolver.delete(android.net.Uri.parse(uri), null, null) }
         }
         items[i] = item.copy(state = DownloadState.QUEUED, progress = 0, downloadedBytes = 0, localUri = null, completedAt = 0)
         persist()
@@ -401,7 +402,7 @@ object DownloadsStore {
                     sink.flush()
                 }
             }
-            // Move into the user's chosen folder (SAF) if set; else keep in app storage.
+            // Move into the user's chosen folder (SAF) if set; else into the public Downloads/AnMediaPlayer folder.
             val finalUri = d.destDir?.let { tree ->
                 runCatching {
                     val dir = androidx.documentfile.provider.DocumentFile.fromTreeUri(appCtx, android.net.Uri.parse(tree)) ?: return@runCatching null
@@ -410,9 +411,34 @@ object DownloadsStore {
                     out.delete()
                     doc.uri.toString()
                 }.getOrNull()
-            } ?: android.net.Uri.fromFile(out).toString()
+            } ?: moveToPublicDownloads(out, d.file)
             update(id, DownloadState.DONE, 100, System.currentTimeMillis(), localUri = finalUri, downloadedBytes = d.size)
         }
+    }
+
+    /** No custom folder picked → land in the shared Download/AnMediaPlayer folder (visible to other apps), unicode name preserved. */
+    private fun moveToPublicDownloads(src: java.io.File, displayName: String): String {
+        return runCatching {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                val values = android.content.ContentValues().apply {
+                    put(android.provider.MediaStore.Downloads.DISPLAY_NAME, displayName)
+                    put(android.provider.MediaStore.Downloads.MIME_TYPE, mimeFor(displayName))
+                    put(android.provider.MediaStore.Downloads.RELATIVE_PATH, "${android.os.Environment.DIRECTORY_DOWNLOADS}/AnMediaPlayer")
+                }
+                val uri = appCtx.contentResolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                    ?: return@runCatching null
+                appCtx.contentResolver.openOutputStream(uri)?.use { os -> src.inputStream().use { it.copyTo(os) } }
+                src.delete()
+                uri.toString()
+            } else {
+                @Suppress("DEPRECATION")
+                val dir = java.io.File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS), "AnMediaPlayer").apply { mkdirs() }
+                val dest = java.io.File(dir, displayName)
+                src.copyTo(dest, overwrite = true)
+                src.delete()
+                android.net.Uri.fromFile(dest).toString()
+            }
+        }.getOrNull() ?: android.net.Uri.fromFile(src).toString()
     }
 
     private fun mimeFor(file: String) = when (file.substringAfterLast('.', "").lowercase()) {
@@ -449,7 +475,7 @@ object DownloadsStore {
             runCatching { fileFor(item.file).delete() }
             // Delete from the chosen SAF folder too, if it lives there.
             item.localUri?.takeIf { it.startsWith("content://") }?.let { uri ->
-                runCatching { androidx.documentfile.provider.DocumentFile.fromSingleUri(ctx, android.net.Uri.parse(uri))?.delete() }
+                runCatching { ctx.contentResolver.delete(android.net.Uri.parse(uri), null, null) }
             }
         }
         items.removeAll { it.id == id }

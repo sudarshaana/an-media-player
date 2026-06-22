@@ -21,9 +21,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -66,6 +68,7 @@ fun SeriesView(
     isWatched: (String, Int?) -> Boolean,
     getProgress: (String) -> Int,
     onPlayEpisode: (List<EpisodeRef>, EpisodeRef) -> Unit,
+    onMenu: (Entry, List<String>) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier,
 ) {
     var selected by remember { mutableIntStateOf(0) }
@@ -123,6 +126,7 @@ fun SeriesView(
                     watched = isWatched(key, ep.durSec),
                     pct = pct,
                     onClick = { play(ep) },
+                    onMenu = { onMenu(ep, season.path) },
                 )
             }
         }
@@ -130,7 +134,7 @@ fun SeriesView(
 }
 
 @Composable
-private fun EpisodeRow(ep: Entry, posterUrl: String?, seed: String, watched: Boolean, pct: Float, onClick: () -> Unit) {
+private fun EpisodeRow(ep: Entry, posterUrl: String?, seed: String, watched: Boolean, pct: Float, onClick: () -> Unit, onMenu: () -> Unit) {
     val np = prettyName(ep.name)
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 10.dp),
@@ -151,6 +155,9 @@ private fun EpisodeRow(ep: Entry, posterUrl: String?, seed: String, watched: Boo
             if (pct > 1f && pct < 96f) Box(Modifier.padding(top = 6.dp).width(160.dp).height(3.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHighest)) {
                 Box(Modifier.fillMaxWidth(pct / 100f).height(3.dp).background(MaterialTheme.colorScheme.primary))
             }
+        }
+        IconButton(onClick = onMenu, modifier = Modifier.size(36.dp)) {
+            Icon(Icons.Outlined.MoreVert, "More", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
         }
     }
 }

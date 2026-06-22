@@ -47,11 +47,19 @@ object OpenSubtitlesApi {
     fun download(fileId: Int): Result<DownloadedSubtitle> = runCatching {
         val body = JSONObject().put("file_id", fileId).toString().toRequestBody("application/json".toMediaType())
         val request = req("$BASE/download").post(body).build()
-        client.newCall(request).execute().use { res ->
-            if (!res.isSuccessful) error("Download failed (${res.code}).")
-            val json = JSONObject(res.body?.string().orEmpty())
-            val link = json.optString("link").ifBlank { null } ?: error("No download link returned.")
-            DownloadedSubtitle(link, json.optString("file_name", "subtitle.srt"))
+        // OpenSubtitles' download endpoint is flaky and intermittently answers 503; retry a couple times before giving up.
+        var lastError: Exception? = null
+        repeat(3) { attempt ->
+            client.newCall(request).execute().use { res ->
+                if (res.isSuccessful) {
+                    val json = JSONObject(res.body?.string().orEmpty())
+                    val link = json.optString("link").ifBlank { null } ?: error("No download link returned.")
+                    return@runCatching DownloadedSubtitle(link, json.optString("file_name", "subtitle.srt"))
+                }
+                if (res.code != 503 || attempt == 2) error("Download failed (${res.code}).")
+            }
+            Thread.sleep(500L * (attempt + 1))
         }
+        error("Download failed (503).")
     }
 }

@@ -34,6 +34,7 @@ import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.GridView
@@ -43,6 +44,7 @@ import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.SortByAlpha
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -119,7 +121,7 @@ fun BrowserScreen(
     onToggleBookmark: (String, List<String>) -> Unit,
     onOpenFolder: (String, List<String>) -> Unit,
     onPlay: (String, List<String>, String, Int?) -> Unit,
-    onDownload: (Entry) -> Unit = {},
+    onDownload: (Entry, List<String>) -> Unit = { _, _ -> },
     onSetView: (Boolean) -> Unit = {},
     onNavVisible: (Boolean) -> Unit = {},
     showTips: Boolean = false,
@@ -142,9 +144,11 @@ fun BrowserScreen(
     var asc by remember { mutableStateOf(initialSortAsc) }
     var sortOpen by remember { mutableStateOf(false) }
     var menuFor by remember { mutableStateOf<Entry?>(null) }
+    var menuPath by remember { mutableStateOf(path) }
     var imageViewer by remember { mutableStateOf<String?>(null) }
     var refreshKey by remember { mutableIntStateOf(0) }
     val ctx = androidx.compose.ui.platform.LocalContext.current
+    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
     val pinFolder: (Entry) -> Unit = { e ->
         val was = isBookmarked(serverId, path + e.name)
         onToggleBookmark(serverId, path + e.name)
@@ -308,6 +312,7 @@ fun BrowserScreen(
                     isWatched = isWatched,
                     getProgress = getProgress,
                     onPlayEpisode = onPlayEpisode,
+                    onMenu = { ep, epPath -> menuFor = ep; menuPath = epPath },
                     modifier = Modifier.fillMaxSize(),
                 )
                 entries.isEmpty() -> EmptyState(searching = query.isNotBlank())
@@ -333,7 +338,7 @@ fun BrowserScreen(
                             pct = pct,
                             res = if (isVid) resFor(e.name) else null,
                             onClick = { open(e) },
-                            onMenu = { menuFor = e },
+                            onMenu = { menuFor = e; menuPath = path },
                             onLongClick = if (e.isDir) ({ pinFolder(e) }) else null,
                             pinned = e.isDir && isBookmarked(serverId, path + e.name),
                             metaName = metaNameFor(e),
@@ -375,8 +380,8 @@ fun BrowserScreen(
                             pct = pct,
                             imageModel = thumb ?: if (e.isDir && path.isEmpty()) xyz.devnerd.anmediaplayer.ui.components.categoryCover(e.name) else null,
                             onClick = { open(e) },
-                            onLongClick = if (e.isDir) ({ pinFolder(e) }) else ({ menuFor = e }),
-                            onMenu = if (!e.isDir) ({ menuFor = e }) else null,
+                            onLongClick = if (e.isDir) ({ pinFolder(e) }) else ({ menuFor = e; menuPath = path }),
+                            onMenu = if (!e.isDir) ({ menuFor = e; menuPath = path }) else null,
                             pinned = e.isDir && isBookmarked(serverId, path + e.name),
                             metaName = metaNameFor(e),
                         )
@@ -410,11 +415,26 @@ fun BrowserScreen(
     }
 
     menuFor?.let { e ->
+        val url = MediaRepo.fileUrl(serverId, menuPath, e.name)
         FileContextSheet(
             entry = e,
+            url = url,
             onDismiss = { menuFor = null },
-            onPlay = { onPlay(serverId, path, e.name, e.durSec); menuFor = null },
-            onDownload = { onDownload(e); menuFor = null },
+            onPlay = { onPlay(serverId, menuPath, e.name, e.durSec); menuFor = null },
+            onDownload = { onDownload(e, menuPath); menuFor = null },
+            onCopyUrl = {
+                clipboard.setText(androidx.compose.ui.text.AnnotatedString(url))
+                android.widget.Toast.makeText(ctx, "URL copied", android.widget.Toast.LENGTH_SHORT).show()
+                menuFor = null
+            },
+            onShareUrl = {
+                val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(android.content.Intent.EXTRA_TEXT, url)
+                }
+                ctx.startActivity(android.content.Intent.createChooser(send, "Share URL"))
+                menuFor = null
+            },
         )
     }
 
@@ -469,15 +489,23 @@ private fun TipRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title:
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun FileContextSheet(entry: Entry, onDismiss: () -> Unit, onPlay: () -> Unit, onDownload: () -> Unit) {
+private fun FileContextSheet(
+    entry: Entry,
+    url: String,
+    onDismiss: () -> Unit,
+    onPlay: () -> Unit,
+    onDownload: () -> Unit,
+    onCopyUrl: () -> Unit,
+    onShareUrl: () -> Unit,
+) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Text(entry.name, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp), maxLines = 1)
         if (entry.type == EntryType.VIDEO) {
             ActionRow(Icons.Outlined.PlayArrow, "Play", onPlay)
-            ActionRow(Icons.Outlined.Download, "Download", onDownload)
-        } else {
-            ActionRow(Icons.Outlined.Download, "Download", onDownload)
         }
+        ActionRow(Icons.Outlined.Download, "Download", onDownload)
+        ActionRow(Icons.Outlined.ContentCopy, "Copy URL", onCopyUrl)
+        ActionRow(Icons.Outlined.Share, "Share URL", onShareUrl)
         Box(Modifier.height(24.dp))
     }
 }
