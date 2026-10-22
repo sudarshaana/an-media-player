@@ -4,6 +4,7 @@ import android.net.Uri
 import xyz.devnerd.anmediaplayer.data.Entry
 import xyz.devnerd.anmediaplayer.data.EntryType
 import xyz.devnerd.anmediaplayer.data.Server
+import xyz.devnerd.anmediaplayer.data.episodeSortKey
 
 /** A browsable/streamable backend. HTTP today; FTP/SFTP/WebDAV later. */
 interface MediaSource {
@@ -47,9 +48,15 @@ fun dirUrl(server: Server, path: List<String>): String {
 }
 
 /** The current folder's videos in natural order — the playback playlist. */
-fun naturalVideoSort(entries: List<Entry>): List<Entry> =
-    entries.filter { it.type == EntryType.VIDEO }
+fun naturalVideoSort(entries: List<Entry>): List<Entry> {
+    val natural = entries.filter { it.type == EntryType.VIDEO }
         .sortedWith { a, b -> naturalKey(a.name).compareTo(naturalKey(b.name)) }
+    // Every file parses as an episode → order by (season, episode); release-name noise
+    // (mixed groups, "E09" vs "S01E10") otherwise scrambles a plain string sort.
+    val keys = natural.map { episodeSortKey(it.name) }
+    if (keys.any { it == null }) return natural
+    return natural.indices.sortedWith(compareBy({ keys[it]!!.first }, { keys[it]!!.second })).map { natural[it] }
+}
 
 private val DIGITS = Regex("\\d+")
 private fun naturalKey(s: String) = DIGITS.replace(s) { it.value.padStart(8, '0') }.lowercase()

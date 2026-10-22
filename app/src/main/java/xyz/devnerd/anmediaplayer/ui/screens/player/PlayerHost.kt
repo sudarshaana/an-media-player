@@ -164,7 +164,7 @@ fun PlayerHost(request: PlaybackRequest, settings: AppSettings, onClose: () -> U
                     keepScreenOn = settings.keepScreenOn,
                     hasPrev = prevEp != null,
                     hasNext = nextEp != null,
-                    playlist = playlist.map { it.file.substringBeforeLast('.') },
+                    playlist = playlist.map { prettyName(it.file).playlistLabel },
                     currentIndex = idx,
                     onSelectIndex = { i -> goTo(playlist.getOrNull(i)) },
                     onPrev = { goTo(prevEp) },
