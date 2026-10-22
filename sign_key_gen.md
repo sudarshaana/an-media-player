@@ -1,0 +1,1 @@
+`keytool -list -v -keystore '/Users/sudarshaana/Library/CloudStorage/GoogleDrive-sudarshaana@gmail.com/My Drive/Developing/all_android_app_sign_key_smbd.jks' -alias smbd`

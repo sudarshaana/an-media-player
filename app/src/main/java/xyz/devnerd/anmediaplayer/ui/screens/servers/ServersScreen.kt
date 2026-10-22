@@ -29,7 +29,6 @@ import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.StarOutline
@@ -85,7 +84,6 @@ fun ServersScreen(
                 windowInsets = androidx.compose.foundation.layout.WindowInsets(0),
                 actions = {
                     IconButton(onClick = onFindServers) { Icon(Icons.Outlined.TravelExplore, "Find servers for my ISP") }
-                    IconButton(onClick = {}) { Icon(Icons.Outlined.History, "History") }
                 },
             )
         },

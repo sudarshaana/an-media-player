@@ -36,10 +36,18 @@ fun normalizedBase(url: String): String = url.trimEnd('/') + "/"
  * Percent-encode a path segment like PHP rawurlencode (what h5ai/most servers
  * use). Android's Uri.encode leaves `( ) ! ' *` literal, which mismatches h5ai
  * folder names like "Movies (1080p)" → "Movies%20%281080p%29".
+ *
+ * `&` is left un-encoded: it's a legal literal char in a URL *path* (only
+ * reserved inside a query string), and some nginx/h5ai setups mis-handle a
+ * percent-encoded `%26` in PATH_INFO (fastcgi_split_path_info regex decodes
+ * it before routing, then serves/caches an empty body for that exact URI —
+ * confirmed against a live BDIX h5ai server: `%26` → cached empty 200,
+ * literal `&` → correct listing).
  */
 fun encodeSegment(s: String): String = Uri.encode(s)
     .replace("(", "%28").replace(")", "%29")
     .replace("!", "%21").replace("'", "%27").replace("*", "%2A")
+    .replace("%26", "&")
 
 fun dirUrl(server: Server, path: List<String>): String {
     val base = server.url.trimEnd('/')

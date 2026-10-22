@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -130,7 +132,13 @@ fun HomeScreen(
             )
             val latestFirst = bookmarks.asReversed()
                 .filter { !bookmarksReachableOnly || !xyz.devnerd.anmediaplayer.data.ServerHealth.isOffline(it.server) }
-            LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            LazyHorizontalGrid(
+                rows = androidx.compose.foundation.lazy.grid.GridCells.Fixed(2),
+                modifier = Modifier.height(432.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
                 items(latestFirst.size) { i ->
                     val b = latestFirst[i]
                     val name = b.path.lastOrNull() ?: AppRepo.serverById(b.server)?.name ?: "Folder"

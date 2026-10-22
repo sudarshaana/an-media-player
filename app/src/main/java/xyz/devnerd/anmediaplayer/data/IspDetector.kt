@@ -7,7 +7,7 @@ import okhttp3.Request
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
-/** Resolved network identity used to match against the bundled BDIX catalog. */
+/** Resolved network identity used to match against the backend server catalog. */
 data class IspInfo(
     val org: String,      // human ISP/ASN org name, e.g. "Carnival Internet"
     val asn: String?,     // "AS138296" if known
@@ -16,8 +16,8 @@ data class IspInfo(
 )
 
 /**
- * Resolves the user's public-IP → ISP org name. BDIX servers are on-net only, so
- * the org name is what we fuzzy-match against [BdixCatalog] entry names.
+ * Resolves the user's public-IP → ISP org/ASN. BDIX servers are on-net only, so
+ * [asn] is the stable key sent as `isp_asn` to [xyz.devnerd.anmediaplayer.data.ServerApi].
  * Tries ipinfo.io (HTTPS) first, falls back to ip-api.com.
  */
 object IspDetector {

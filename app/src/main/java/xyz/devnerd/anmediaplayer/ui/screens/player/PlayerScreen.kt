@@ -187,9 +187,11 @@ fun PlayerScreen(
     fun currentBrightness(): Float = activity?.window?.attributes?.screenBrightness?.takeIf { it in 0f..1f } ?: 0.5f
     fun currentVolume(): Float = audio.getStreamVolume(android.media.AudioManager.STREAM_MUSIC).toFloat() / maxVol
 
-    // Cast (Google default receiver). Null when Play Services Cast unavailable.
-    val castContext = remember { runCatching { com.google.android.gms.cast.framework.CastContext.getSharedInstance(context) }.getOrNull() }
-    val castPlayer = remember(castContext) { castContext?.let { androidx.media3.cast.CastPlayer(it) } }
+    // Cast (Google default receiver). Null when Play Services Cast unavailable or the
+    // stream isn't reachable by a TV (offline / local file).
+    val castPlayer = remember { CastHolder.player(context)?.takeIf { isCastable(streamUrl) } }
+    // Already connected (e.g. next episode while casting) → go straight to the TV.
+    val castAtStart = remember { castPlayer?.isCastSessionAvailable == true }
 
     val exo = remember(streamUrl) {
         ExoPlayer.Builder(context).build().apply {
@@ -207,9 +209,13 @@ fun PlayerScreen(
             setMediaItem(item)
             prepare()
             seekTo(startAt * 1000L)
-            playWhenReady = true
+            playWhenReady = !castAtStart
         }
     }
+    var casting by remember { mutableStateOf(false) }
+    var castDevice by remember { mutableStateOf<String?>(null) }
+    // Player the UI drives: the TV while casting, else local ExoPlayer.
+    fun active(): Player = if (casting && castPlayer != null) castPlayer else exo
 
     var time by remember(streamUrl) { mutableFloatStateOf(startAt.toFloat()) }
     var duration by remember(streamUrl) { mutableIntStateOf(durSec) }
@@ -247,13 +253,16 @@ fun PlayerScreen(
     }
 
     DisposableEffect(exo) {
+        // Local player is paused while casting — ignore its state so it can't clobber the TV's.
         val listener = object : Player.Listener {
-            override fun onIsPlayingChanged(isPlaying: Boolean) { playing = isPlaying }
+            override fun onIsPlayingChanged(isPlaying: Boolean) { if (!casting) playing = isPlaying }
             override fun onPlaybackStateChanged(state: Int) {
+                if (casting) return
                 buffering = state == Player.STATE_BUFFERING
                 if (state == Player.STATE_ENDED) onEnded()
             }
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                if (casting) return
                 buffering = false
                 showUI = true
                 playerError = when (error.errorCode) {
@@ -292,29 +301,85 @@ fun PlayerScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // Hand off to / from Cast when a session connects.
-    DisposableEffect(castPlayer, streamUrl) {
-        val l = object : androidx.media3.cast.SessionAvailabilityListener {
-            override fun onCastSessionAvailable() {
-                runCatching {
-                    castPlayer?.apply { setMediaItem(MediaItem.fromUri(streamUrl)); playWhenReady = true; prepare(); seekTo(exo.currentPosition) }
-                    exo.pause()
+    // Hand off to / from Cast. The CastPlayer is app-wide (CastHolder) and never released
+    // here — release() would end the session on every episode change.
+    DisposableEffect(castPlayer) {
+        val cp = castPlayer ?: return@DisposableEffect onDispose {}
+        fun startCasting(posMs: Long) {
+            val subs = exo.currentMediaItem?.localConfiguration?.subtitleConfigurations.orEmpty()
+            val ok = runCatching {
+                cp.setMediaItem(castMediaItem(streamUrl, title, subtitleLabel, subs, subIndex > 0), posMs)
+                cp.repeatMode = exo.repeatMode
+                cp.playWhenReady = true
+                cp.prepare()
+                if (speed != 1f) cp.setPlaybackSpeed(speed)
+            }.onFailure { android.util.Log.w("AnMediaPlayer", "Cast load failed", it) }.isSuccess
+            if (!ok) return
+            exo.pause()
+            casting = true
+            castDevice = CastHolder.deviceName(context)
+            playerError = null
+            showUI = true
+        }
+        fun stopCasting() {
+            if (!casting) return
+            val pos = (time * 1000).toLong()
+            casting = false
+            castDevice = null
+            exo.seekTo(pos)
+            exo.play()
+        }
+        val sessionListener = object : androidx.media3.cast.SessionAvailabilityListener {
+            override fun onCastSessionAvailable() = startCasting((time * 1000).toLong())
+            override fun onCastSessionUnavailable() = stopCasting()
+        }
+        var castWasPlaying = false
+        val castListener = object : Player.Listener {
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                if (!casting) return
+                playing = isPlaying
+                if (isPlaying) castWasPlaying = true
+            }
+            override fun onPlaybackStateChanged(state: Int) {
+                if (!casting) return
+                buffering = state == Player.STATE_BUFFERING
+                // Receiver reports IDLE (not ENDED) when the item finishes.
+                if (state == Player.STATE_IDLE && castWasPlaying && CastHolder.finished(context)) {
+                    castWasPlaying = false
+                    onEnded()
                 }
             }
-            override fun onCastSessionUnavailable() { exo.play() }
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                if (!casting) return
+                buffering = false
+                showUI = true
+                playerError = "Cast playback failed. The TV may not support this format."
+            }
         }
-        castPlayer?.setSessionAvailabilityListener(l)
-        onDispose { castPlayer?.setSessionAvailabilityListener(null); castPlayer?.release() }
+        cp.setSessionAvailabilityListener(sessionListener)
+        cp.addListener(castListener)
+        if (castAtStart) {
+            startCasting(startAt * 1000L)
+            if (!casting) exo.play() // load failed — fall back to local playback
+        }
+        onDispose {
+            cp.setSessionAvailabilityListener(null)
+            cp.removeListener(castListener)
+            // Leaving this item (close / next episode) stops it on the TV but keeps the
+            // session connected, so the next video casts straight away.
+            if (casting && !CastHolder.finished(context)) runCatching { cp.stop() }
+        }
     }
 
     // poll position/duration/buffer
     LaunchedEffect(exo) {
         while (true) {
             if (!scrubbing) {
-                time = exo.currentPosition / 1000f
-                val d = exo.duration
+                val p = active()
+                time = p.currentPosition / 1000f
+                val d = p.duration
                 if (d > 0) duration = (d / 1000).toInt()
-                bufferedPct = if (exo.duration > 0) exo.bufferedPosition.toFloat() / exo.duration else 0f
+                bufferedPct = if (d > 0) p.bufferedPosition.toFloat() / d else 0f
             }
             // While the resume pill is offered, don't overwrite the saved position.
             if (resumeOffer == null) saveProgress(time.toInt(), duration)
@@ -336,8 +401,13 @@ fun PlayerScreen(
     }
 
     fun poke() { showUI = true; uiPoke++ }
-    fun seekBy(d: Int) { exo.seekTo((exo.currentPosition + d * 1000L).coerceAtLeast(0)) }
-    fun togglePlay() { if (exo.isPlaying) exo.pause() else exo.play(); poke() }
+    fun seekBy(d: Int) { val p = active(); p.seekTo((p.currentPosition + d * 1000L).coerceAtLeast(0)) }
+    fun togglePlay() {
+        val p = active()
+        // CastPlayer reports isPlaying=false while the TV buffers; playWhenReady is the intent.
+        if (if (casting) p.playWhenReady else p.isPlaying) p.pause() else p.play()
+        poke()
+    }
     fun applySub(idx: Int) {
         subIndex = idx
         val on = idx != 0
@@ -349,8 +419,9 @@ fun PlayerScreen(
             b.setPreferredTextLanguage(if (on) "en" else null).setSelectUndeterminedTextLanguage(on)
         }
         exo.trackSelectionParameters = b.build()
+        if (casting) runCatching { CastHolder.setSubtitleOn(context, on) }
     }
-    fun applySpeed(s: Float) { speed = s; exo.setPlaybackSpeed(s) }
+    fun applySpeed(s: Float) { speed = s; exo.setPlaybackSpeed(s); if (casting) castPlayer?.setPlaybackSpeed(s) }
     fun applyAudio(i: Int) {
         val o = audioOpts.getOrNull(i) ?: return
         exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()
@@ -459,8 +530,8 @@ fun PlayerScreen(
                 // Hardware media keys: always active regardless of UI state.
                 when (ev.key) {
                     androidx.compose.ui.input.key.Key.MediaPlayPause -> { togglePlay(); return@onPreviewKeyEvent true }
-                    androidx.compose.ui.input.key.Key.MediaPlay -> { exo.play(); poke(); return@onPreviewKeyEvent true }
-                    androidx.compose.ui.input.key.Key.MediaPause -> { exo.pause(); poke(); return@onPreviewKeyEvent true }
+                    androidx.compose.ui.input.key.Key.MediaPlay -> { active().play(); poke(); return@onPreviewKeyEvent true }
+                    androidx.compose.ui.input.key.Key.MediaPause -> { active().pause(); poke(); return@onPreviewKeyEvent true }
                     androidx.compose.ui.input.key.Key.MediaFastForward -> { seekBy(10); poke(); return@onPreviewKeyEvent true }
                     androidx.compose.ui.input.key.Key.MediaRewind -> { seekBy(-10); poke(); return@onPreviewKeyEvent true }
                 }
@@ -511,6 +582,16 @@ fun PlayerScreen(
                 update = { it.resizeMode = resizeMode; it.keepScreenOn = keepScreenOn && playing },
                 modifier = Modifier.fillMaxSize(),
             )
+            if (casting) {
+                Column(
+                    Modifier.fillMaxSize().background(Color.Black),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterVertically),
+                ) {
+                    Icon(Icons.Outlined.Cast, null, tint = Color.White, modifier = Modifier.size(48.dp))
+                    Text(castDevice?.let { "Casting to $it" } ?: "Casting", style = MaterialTheme.typography.titleSmall, color = Color.White)
+                }
+            }
             if (buffering && playerError == null) CircularProgressIndicator(color = Color.White)
             playerError?.let { msg ->
                 Column(
@@ -543,10 +624,10 @@ fun PlayerScreen(
                                 seekFx = SeekFx(fwd, off.x.toLong() + time.toLong())
                             }
                         },
-                        onLongPress = { if (!locked) { ffActive = true; exo.setPlaybackSpeed(2f) } },
+                        onLongPress = { if (!locked) { ffActive = true; active().setPlaybackSpeed(2f) } },
                         onPress = {
                             tryAwaitRelease()
-                            if (ffActive) { ffActive = false; exo.setPlaybackSpeed(speed) }
+                            if (ffActive) { ffActive = false; active().setPlaybackSpeed(speed) }
                         },
                     )
                 }
@@ -646,7 +727,7 @@ fun PlayerScreen(
                         val vf = exo.videoFormat
                         MoreActionsBar(
                             repeatOne = repeatOne,
-                            onToggleRepeat = { repeatOne = !repeatOne; exo.repeatMode = if (repeatOne) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF },
+                            onToggleRepeat = { repeatOne = !repeatOne; val m = if (repeatOne) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF; exo.repeatMode = m; if (casting) castPlayer?.repeatMode = m },
                             onLock = { locked = true; showUI = false; showMore = false },
                             onResize = { sheet = PlayerSheet.RESIZE; showMore = false },
                             onSpeed = { sheet = PlayerSheet.SPEED; showMore = false },
@@ -661,7 +742,7 @@ fun PlayerScreen(
                             onPiP = { showMore = false; enterPip() },
                             onInfo = { showInfo = true; showMore = false },
                             onDownload = onDownload?.let { dl -> { dl(); showMore = false } },
-                            castSlot = if (castContext != null && !isTv) ({ CastRouteButton() }) else null,
+                            castSlot = if (castPlayer != null && !isTv) ({ CastRouteButton() }) else null,
                         )
                     }
                 }
@@ -677,7 +758,7 @@ fun PlayerScreen(
                 CinemaDeck(
                     np = np, hasPrev = hasPrev, hasNext = hasNext, time = time, duration = duration, pct = pct, buffered = buffered,
                     playing = playing,
-                    onScrub = { f -> scrubbing = true; time = f * duration }, onScrubEnd = { exo.seekTo((time * 1000).toLong()); scrubbing = false; poke() },
+                    onScrub = { f -> scrubbing = true; time = f * duration }, onScrubEnd = { active().seekTo((time * 1000).toLong()); scrubbing = false; poke() },
                     onPrev = onPrev, onNext = onNext, onSeek = { seekBy(it) }, onToggle = { togglePlay() },
                 )
             }
@@ -686,7 +767,7 @@ fun PlayerScreen(
                 BottomControls(
                     minimal = minimal, time = time, duration = duration, pct = pct, buffered = buffered, scrubbing = scrubbing,
                     playing = playing, subOn = subIndex > 0, speed = speed,
-                    onScrub = { f -> scrubbing = true; time = f * duration }, onScrubEnd = { exo.seekTo((time * 1000).toLong()); scrubbing = false; poke() },
+                    onScrub = { f -> scrubbing = true; time = f * duration }, onScrubEnd = { active().seekTo((time * 1000).toLong()); scrubbing = false; poke() },
                     onToggle = { togglePlay() }, onSheet = { sheet = it },
                 )
             }
@@ -701,7 +782,7 @@ fun PlayerScreen(
                     .focusRequester(resumeFocus)
                     .focusHighlight(RoundedCornerShape(28.dp))
                     .clip(RoundedCornerShape(28.dp)).background(Color.Black.copy(alpha = 0.6f))
-                    .clickable { exo.seekTo(pos * 1000L); resumeOffer = null }
+                    .clickable { active().seekTo(pos * 1000L); resumeOffer = null }
                     .padding(start = 24.dp, end = 14.dp, top = 14.dp, bottom = 14.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
@@ -939,8 +1020,11 @@ private fun CastRouteButton() {
         // empty view rather than crash the player.
         factory = { ctx ->
             runCatching {
-                val themed = androidx.appcompat.view.ContextThemeWrapper(ctx, androidx.appcompat.R.style.Theme_AppCompat_DayNight_NoActionBar)
+                // Dark theme → light icon, matching the always-black player bar in either app theme.
+                val themed = androidx.appcompat.view.ContextThemeWrapper(ctx, androidx.appcompat.R.style.Theme_AppCompat_NoActionBar)
                 androidx.mediarouter.app.MediaRouteButton(themed).apply {
+                    // Keep the slot populated even before any TV is discovered.
+                    setAlwaysVisible(true)
                     com.google.android.gms.cast.framework.CastButtonFactory.setUpMediaRouteButton(themed, this)
                 } as android.view.View
             }.getOrElse { android.view.View(ctx) }

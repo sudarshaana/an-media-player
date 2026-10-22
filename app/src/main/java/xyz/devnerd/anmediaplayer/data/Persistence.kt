@@ -102,11 +102,25 @@ object AppRepo {
         }.getOrDefault(emptyList())
     }
 
+    /** Maps the free-text display parser ("h5ai JSON API", "FTP listing", …) to the backend's choice key. */
+    private fun apiParserKey(display: String): String = when {
+        display.contains("h5ai", true) -> "h5ai"
+        display.contains("ftp", true) -> "ftp"
+        display.contains("webdav", true) -> "webdav"
+        else -> "autoindex"
+    }
+
     // ── servers ──
     /** Ephemeral servers for "Browse without saving" — resolvable by id, not persisted, not shown in the Servers list. */
     private val transient = mutableStateMapOf<String, Server>()
 
-    fun addServer(s: Server) { servers.removeAll { it.id == s.id }; servers.add(s); persistServers() }
+    fun addServer(s: Server) {
+        servers.removeAll { it.id == s.id }; servers.add(s); persistServers()
+        scope.launch {
+            val isp = IspDetector.detect()
+            ServerApi.submit(s.name, s.url, isp?.asn, isp?.org, s.auth, apiParserKey(s.parser))
+        }
+    }
     fun removeServer(id: String) { servers.removeAll { it.id == id }; persistServers() }
     fun toggleFavorite(id: String) {
         val i = servers.indexOfFirst { it.id == id }

@@ -2,7 +2,6 @@ package xyz.devnerd.anmediaplayer.ui.screens.servers
 
 import android.app.Application
 import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -20,9 +19,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.outlined.ExpandLess
+import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Search
@@ -51,6 +52,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,13 +66,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import xyz.devnerd.anmediaplayer.data.ApiMirror
 import xyz.devnerd.anmediaplayer.data.AppRepo
-import xyz.devnerd.anmediaplayer.data.BdixCatalog
 import xyz.devnerd.anmediaplayer.data.IspDetector
 import xyz.devnerd.anmediaplayer.data.IspInfo
-import xyz.devnerd.anmediaplayer.data.IspServer
 import xyz.devnerd.anmediaplayer.data.Server
-import xyz.devnerd.anmediaplayer.data.UrlReach
+import xyz.devnerd.anmediaplayer.data.ServerApi
 import xyz.devnerd.anmediaplayer.ui.components.LocalIsTv
 import xyz.devnerd.anmediaplayer.ui.components.focusHighlight
 
@@ -80,22 +81,22 @@ private val ONLINE = Color(0xFF2E7D32)
 
 /**
  * Holds Suggested-screen state across navigation. Scoped to the nav back-stack
- * entry, so Browse → back preserves detected ISP, scan results and expansion;
- * leaving the screen entirely clears it.
+ * entry, so Browse → back preserves detected ISP and scan results; leaving the
+ * screen entirely clears it — re-entering refetches the live catalog.
  */
 class SuggestedViewModel(app: Application) : AndroidViewModel(app) {
     var phase by mutableStateOf(Phase.DETECTING)
     var isp by mutableStateOf<IspInfo?>(null)
-    val matched = mutableStateListOf<IspServer>()
+    val matched = mutableStateListOf<ApiMirror>()
     var noMatch by mutableStateOf(false)
     var showAll by mutableStateOf(false)
     var query by mutableStateOf("")
-    var catalog by mutableStateOf<List<IspServer>>(emptyList())
+    var catalog by mutableStateOf<List<ApiMirror>>(emptyList())
 
-    // Reachability per ISP (by name). Absent = not tested yet.
-    val reachMap = mutableStateMapOf<String, List<UrlReach>>()
-    var expanded by mutableStateOf<String?>(null)
-    var probingIsp by mutableStateOf<String?>(null)
+    // Reachability + in-flight probe state, keyed by mirror url (unique).
+    val reachMap: SnapshotStateMap<String, Boolean> = mutableStateMapOf()
+    val probingUrls = mutableStateListOf<String>()
+    var expandedIsp by mutableStateOf<String?>(null)
 
     var scanning by mutableStateOf(false)
     var scanIdx by mutableIntStateOf(0)
@@ -107,41 +108,54 @@ class SuggestedViewModel(app: Application) : AndroidViewModel(app) {
     fun start() {
         if (started) return
         started = true
-        catalog = BdixCatalog.load(getApplication())
         viewModelScope.launch {
             val info = IspDetector.detect()
             isp = info
-            val matches = if (info != null) BdixCatalog.match(catalog, info) else emptyList()
+            catalog = ServerApi.fetch()
+            val matches = if (info?.asn != null) ServerApi.fetch(info.asn) else emptyList()
             matched.clear()
-            matched.addAll(matches.map { it.server })
+            matched.addAll(matches)
             noMatch = matched.isEmpty()
             showAll = matched.isEmpty()
+            // Matched tab is normally one ISP (the detected one) — expand it by default.
+            expandedIsp = matched.firstOrNull()?.ispName
             phase = Phase.READY
+            if (expandedIsp != null) startScan(matched.map { it.url })
         }
     }
 
-    fun probe(s: IspServer) {
-        if (reachMap[s.name] != null || probingIsp == s.name) return
+    /** Expanding an ISP card auto-checks its servers; collapsing leaves results cached. */
+    fun toggleIsp(ispName: String, urls: List<String>) {
+        if (expandedIsp == ispName) {
+            expandedIsp = null
+        } else {
+            expandedIsp = ispName
+            startScan(urls)
+        }
+    }
+
+    fun probe(url: String) {
+        if (reachMap.containsKey(url) || url in probingUrls) return
         viewModelScope.launch {
-            probingIsp = s.name
-            reachMap[s.name] = BdixCatalog.probe(s)
-            probingIsp = null
+            probingUrls.add(url)
+            reachMap[url] = ServerApi.probe(listOf(url)).firstOrNull()?.online ?: false
+            probingUrls.remove(url)
         }
     }
 
-    fun toggle(s: IspServer) {
-        if (expanded == s.name) expanded = null
-        else { expanded = s.name; probe(s) }
-    }
-
-    fun startScan(list: List<IspServer>) {
-        scanTotal = list.size
+    fun startScan(urls: List<String>) {
+        val todo = urls.filter { !reachMap.containsKey(it) }
+        scanTotal = todo.size
         scanIdx = 0
         scanning = true
         scanJob = viewModelScope.launch {
-            for (s in list) {
+            for (url in todo) {
                 if (!isActive) break
-                if (reachMap[s.name] == null) reachMap[s.name] = BdixCatalog.probe(s)
+                if (!reachMap.containsKey(url)) {
+                    probingUrls.add(url)
+                    reachMap[url] = ServerApi.probe(listOf(url)).firstOrNull()?.online ?: false
+                    probingUrls.remove(url)
+                }
                 scanIdx++
             }
             scanning = false
@@ -168,8 +182,11 @@ fun SuggestedServersScreen(
 
     val shown = if (vm.showAll) {
         if (vm.query.isBlank()) vm.catalog
-        else vm.catalog.filter { it.name.contains(vm.query, true) || it.urls.any { u -> u.contains(vm.query, true) } }
+        else vm.catalog.filter {
+            it.serverName.contains(vm.query, true) || it.ispName.contains(vm.query, true) || it.url.contains(vm.query, true)
+        }
     } else vm.matched
+    val grouped = shown.groupBy { it.ispName }.toList().sortedBy { it.first.lowercase() }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -214,9 +231,23 @@ fun SuggestedServersScreen(
             item {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (vm.matched.isNotEmpty()) {
-                        FilterChip(selected = !vm.showAll, onClick = { vm.showAll = false }, label = { Text("Matched (${vm.matched.size})") }, modifier = Modifier.focusHighlight(RoundedCornerShape(8.dp)))
+                        FilterChip(
+                            selected = !vm.showAll,
+                            onClick = {
+                                vm.showAll = false
+                                vm.expandedIsp = vm.matched.firstOrNull()?.ispName
+                                if (vm.expandedIsp != null) vm.startScan(vm.matched.map { it.url })
+                            },
+                            label = { Text("Matched (${vm.matched.size})") },
+                            modifier = Modifier.focusHighlight(RoundedCornerShape(8.dp)),
+                        )
                     }
-                    FilterChip(selected = vm.showAll, onClick = { vm.showAll = true }, label = { Text("All providers") }, modifier = Modifier.focusHighlight(RoundedCornerShape(8.dp)))
+                    FilterChip(
+                        selected = vm.showAll,
+                        onClick = { vm.showAll = true; vm.expandedIsp = null },
+                        label = { Text("All providers") },
+                        modifier = Modifier.focusHighlight(RoundedCornerShape(8.dp)),
+                    )
                 }
             }
 
@@ -249,35 +280,46 @@ fun SuggestedServersScreen(
                         )
                     }
                 } else {
-                    FilledTonalButton(onClick = { vm.startScan(shown) }, modifier = Modifier.fillMaxWidth().focusHighlight(RoundedCornerShape(20.dp)), enabled = shown.isNotEmpty()) {
+                    FilledTonalButton(onClick = { vm.startScan(shown.map { it.url }) }, modifier = Modifier.fillMaxWidth().focusHighlight(RoundedCornerShape(20.dp)), enabled = shown.isNotEmpty()) {
                         Icon(Icons.Outlined.TravelExplore, null, modifier = Modifier.size(18.dp))
                         Text("  Test all (${shown.size})")
                     }
                 }
             }
 
-            items(shown, key = { it.name }) { s ->
-                IspCard(
-                    server = s,
-                    reach = vm.reachMap[s.name],
-                    expanded = vm.expanded == s.name,
-                    probing = vm.probingIsp == s.name,
-                    onToggle = { vm.toggle(s) },
-                    onBrowse = { url ->
-                        val srv = buildSuggestedServer(s.name, url)
-                        AppRepo.addTransient(srv)
-                        onBrowse(srv.id)
-                    },
-                    onAdd = { url ->
-                        AppRepo.addServer(buildSuggestedServer(s.name, url))
-                        Toast.makeText(ctx, "Added ${prettyIspName(s.name)}", Toast.LENGTH_SHORT).show()
-                    },
-                    onAddAll = {
-                        val online = (vm.reachMap[s.name] ?: emptyList()).filter { it.online }
-                        online.forEach { AppRepo.addServer(buildSuggestedServer(s.name, it.url)) }
-                        Toast.makeText(ctx, "Added ${online.size} server${if (online.size == 1) "" else "s"}", Toast.LENGTH_SHORT).show()
-                    },
-                )
+            grouped.forEach { (ispName, mirrors) ->
+                val expanded = vm.expandedIsp == ispName
+                item(key = "isp_$ispName") {
+                    IspGroupHeader(ispName, mirrors.size, expanded, onToggle = { vm.toggleIsp(ispName, mirrors.map { it.url }) })
+                }
+                if (expanded) {
+                    items(mirrors, key = { "${it.ispName}|${it.serverName}|${it.url}" }) { m ->
+                        MirrorRow(
+                            mirror = m,
+                            online = vm.reachMap[m.url],
+                            checking = m.url in vm.probingUrls,
+                            onBrowse = {
+                                val srv = buildSuggestedServer(m.serverName, m.url, m.requiresAuth)
+                                AppRepo.addTransient(srv)
+                                onBrowse(srv.id)
+                            },
+                            onAdd = {
+                                AppRepo.addServer(buildSuggestedServer(m.serverName, m.url, m.requiresAuth))
+                                Toast.makeText(ctx, "Added ${m.serverName}", Toast.LENGTH_SHORT).show()
+                            },
+                        )
+                    }
+                    item(key = "test_$ispName") {
+                        OutlinedButton(
+                            onClick = { vm.startScan(mirrors.map { it.url }) },
+                            modifier = Modifier.fillMaxWidth().focusHighlight(RoundedCornerShape(20.dp)),
+                            enabled = !vm.scanning,
+                        ) {
+                            Icon(Icons.Outlined.TravelExplore, null, modifier = Modifier.size(16.dp))
+                            Text("  Test all servers (${mirrors.size})")
+                        }
+                    }
+                }
             }
         }
         }
@@ -306,114 +348,77 @@ private fun IspHeader(isp: IspInfo?) {
 }
 
 @Composable
-private fun IspCard(
-    server: IspServer,
-    reach: List<UrlReach>?,
-    expanded: Boolean,
-    probing: Boolean,
-    onToggle: () -> Unit,
-    onBrowse: (url: String) -> Unit,
-    onAdd: (url: String) -> Unit,
-    onAddAll: () -> Unit,
-) {
+private fun IspGroupHeader(ispName: String, count: Int, expanded: Boolean, onToggle: () -> Unit) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        shape = RoundedCornerShape(18.dp),
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)),
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)),
     ) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .focusHighlight(RoundedCornerShape(12.dp))
-                    .clickable(onClick = onToggle),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                Box(
-                    Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center,
-                ) { Icon(Icons.Outlined.Dns, null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(22.dp)) }
-                Column(Modifier.weight(1f)) {
-                    Text(prettyIspName(server.name), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Box(Modifier.size(0.dp, 2.dp))
-                    CardSummary(server = server, reach = reach, probing = probing)
-                }
-            }
-
-            AnimatedVisibility(expanded) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    server.urls.forEach { url ->
-                        val r = reach?.firstOrNull { it.url == url }
-                        UrlRow(
-                            url = url,
-                            online = r?.online,
-                            checking = reach == null,
-                            onBrowse = { onBrowse(url) },
-                            onAdd = { onAdd(url) },
-                        )
-                    }
-                    val onlineCount = reach?.count { it.online } ?: 0
-                    Button(
-                        onClick = onAddAll,
-                        enabled = onlineCount > 0,
-                        modifier = Modifier.fillMaxWidth().padding(top = 6.dp).focusHighlight(RoundedCornerShape(20.dp)),
-                    ) { Text(if (onlineCount > 0) "Add to server list ($onlineCount accessible)" else "No accessible address") }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun CardSummary(server: IspServer, reach: List<UrlReach>?, probing: Boolean) {
-    when {
-        probing && reach == null -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 2.dp)
-            Text("Testing…", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        reach != null -> {
-            val ok = reach.count { it.online }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Icon(
-                    if (ok > 0) Icons.Outlined.CheckCircle else Icons.Outlined.ErrorOutline,
-                    null,
-                    tint = if (ok > 0) ONLINE else MaterialTheme.colorScheme.outline,
-                    modifier = Modifier.size(15.dp),
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .focusHighlight(RoundedCornerShape(16.dp))
+                .clickable(onClick = onToggle)
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Box(
+                Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center,
+            ) { Icon(Icons.Outlined.Public, null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(18.dp)) }
+            Column(Modifier.weight(1f)) {
+                Text(
+                    prettyIspName(ispName).ifBlank { "Unknown ISP" },
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
-                Text("$ok of ${reach.size} accessible", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("$count server${if (count == 1) "" else "s"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-        }
-        else -> Text("${server.urls.size} address${if (server.urls.size == 1) "" else "es"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-@Composable
-private fun UrlRow(url: String, online: Boolean?, checking: Boolean, onBrowse: () -> Unit, onAdd: () -> Unit) {
-    val enabled = online == true
-    Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(10.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ReachDot(online = online, checking = checking)
-            Text(
-                url,
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
+            Icon(
+                if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = onBrowse, enabled = enabled, modifier = Modifier.weight(1f).focusHighlight(RoundedCornerShape(20.dp))) {
-                Icon(Icons.Outlined.PlayArrow, null, modifier = Modifier.size(16.dp))
-                Text("  Browse")
+    }
+}
+
+@Composable
+private fun MirrorRow(mirror: ApiMirror, online: Boolean?, checking: Boolean, onBrowse: () -> Unit, onAdd: () -> Unit) {
+    val enabled = online == true
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)),
+    ) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Box(
+                    Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center,
+                ) { Icon(Icons.Outlined.Dns, null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(18.dp)) }
+                Column(Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(mirror.serverName, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (mirror.requiresAuth) Icon(Icons.Outlined.Lock, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(13.dp))
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        ReachDot(online = online, checking = checking)
+                        Text(mirror.url, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
             }
-            FilledTonalButton(onClick = onAdd, enabled = enabled, modifier = Modifier.weight(1f).focusHighlight(RoundedCornerShape(20.dp))) {
-                Text("Add to server")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onBrowse, enabled = enabled, modifier = Modifier.weight(1f).focusHighlight(RoundedCornerShape(20.dp))) {
+                    Icon(Icons.Outlined.PlayArrow, null, modifier = Modifier.size(16.dp))
+                    Text("  Browse")
+                }
+                FilledTonalButton(onClick = onAdd, enabled = enabled, modifier = Modifier.weight(1f).focusHighlight(RoundedCornerShape(20.dp))) {
+                    Text("Add to server")
+                }
             }
         }
     }
@@ -424,6 +429,7 @@ private fun ReachDot(online: Boolean?, checking: Boolean) {
     when {
         checking -> CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 2.dp)
         online == true -> Box(Modifier.size(9.dp).clip(CircleShape).background(ONLINE))
+        online == false -> Icon(Icons.Outlined.ErrorOutline, null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(12.dp))
         else -> Box(Modifier.size(9.dp).clip(CircleShape).background(MaterialTheme.colorScheme.outline))
     }
 }
@@ -435,15 +441,15 @@ private fun prettyIspName(raw: String): String =
         .joinToString(" ") { w -> if (w.length > 3 && w == w.uppercase() && !w.startsWith("(")) w.lowercase().replaceFirstChar { it.uppercase() } else w }
         .trim()
 
-private fun buildSuggestedServer(ispName: String, url: String): Server {
+private fun buildSuggestedServer(name: String, url: String, requiresAuth: Boolean): Server {
     val clean = url.trim()
     val parser = if (Regex("h5ai|\\?action=").containsMatchIn(clean)) "h5ai JSON API" else "auto"
     return Server(
         id = "srv_" + Integer.toHexString(clean.hashCode()),
-        name = prettyIspName(ispName),
+        name = prettyIspName(name),
         url = clean,
         protocol = if (clean.startsWith("https", true)) "HTTPS" else "HTTP",
-        auth = false,
+        auth = requiresAuth,
         user = null,
         password = null,
         parser = parser,

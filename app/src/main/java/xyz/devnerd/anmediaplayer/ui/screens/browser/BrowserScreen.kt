@@ -68,6 +68,9 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -525,6 +528,12 @@ private fun ActionRow(icon: ImageVector, label: String, onClick: () -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SearchBar(query: String, onQuery: (String) -> Unit, onClose: () -> Unit) {
+    val focusRequester = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+        keyboard?.show()
+    }
     TopAppBar(
         windowInsets = androidx.compose.foundation.layout.WindowInsets(0),
         navigationIcon = { IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") } },
@@ -539,7 +548,7 @@ private fun SearchBar(query: String, onQuery: (String) -> Unit, onClose: () -> U
                     if (query.isEmpty()) Text("Search this folder", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     inner()
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
             )
         },
         actions = {

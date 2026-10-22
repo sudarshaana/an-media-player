@@ -147,7 +147,7 @@ class HttpMediaSource(
 
     /** h5ai JSON API fallback: POST action=get for the folder. */
     private fun tryH5ai(server: Server, path: List<String>, dirUrl: String): List<Entry> {
-        val href = "/" + path.joinToString("/") { Uri.encode(it) }.let { if (it.isEmpty()) "" else "$it/" }
+        val href = "/" + path.joinToString("/") { encodeSegment(it) }.let { if (it.isEmpty()) "" else "$it/" }
         val endpoint = normalizedBase(server.url) + "_h5ai/public/index.php"
         val form = "action=get&items=" + Uri.encode("""{"href":"$href","what":1}""")
         val body = form.toRequestBody("application/x-www-form-urlencoded".toMediaType())

@@ -25,6 +25,7 @@ import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -36,6 +37,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -72,9 +74,11 @@ private fun detectParser(url: String, proto: String?): String? = when {
  * Live URL-pattern guess is just a hint; this does the real check on Connect —
  * fetches the root folder and falls back to "WEB" (raw-browser mode) when no
  * listing structure (h5ai/autoindex) is found, instead of showing an empty folder.
+ * `reachable = false` means the probe request itself failed (couldn't connect at all),
+ * as opposed to connecting fine but not recognizing a listing format.
  */
-private suspend fun probeParser(url: String, proto: String?, auth: Boolean, user: String, pass: String): String {
-    if (proto != "HTTP" && proto != "HTTPS") return detectParser(url, proto) ?: (proto ?: "auto")
+private suspend fun probeParser(url: String, proto: String?, auth: Boolean, user: String, pass: String): Pair<String, Boolean> {
+    if (proto != "HTTP" && proto != "HTTPS") return (detectParser(url, proto) ?: (proto ?: "auto")) to true
     val probeServer = xyz.devnerd.anmediaplayer.data.Server(
         id = "", name = "", url = url.trim(), protocol = proto, auth = auth,
         user = user.ifBlank { null }, password = pass.ifBlank { null },
@@ -82,9 +86,9 @@ private suspend fun probeParser(url: String, proto: String?, auth: Boolean, user
     )
     return try {
         val entries = xyz.devnerd.anmediaplayer.data.source.HttpMediaSource().list(probeServer, emptyList())
-        if (entries.isNotEmpty()) detectParser(url, proto) ?: "Apache / nginx index" else "WEB"
+        (if (entries.isNotEmpty()) detectParser(url, proto) ?: "Apache / nginx index" else "WEB") to true
     } catch (e: Exception) {
-        "WEB"
+        "WEB" to false
     }
 }
 
@@ -104,6 +108,7 @@ fun ConnectScreen(
     var pass by remember { mutableStateOf(editServer?.password ?: "") }
     var showPass by remember { mutableStateOf(false) }
     var connecting by remember { mutableStateOf(false) }
+    var unreachableServer by remember { mutableStateOf<Server?>(null) }
     val scope = rememberCoroutineScope()
 
     val proto = detectProtocol(url)
@@ -214,10 +219,15 @@ fun ConnectScreen(
                     if (connecting) return@Button
                     connecting = true
                     scope.launch {
-                        val resolvedParser = probeParser(url, proto, needAuth, user, pass)
+                        val (resolvedParser, reachable) = probeParser(url, proto, needAuth, user, pass)
                         val server = buildServer(name, url, proto, resolvedParser, needAuth, user, pass, editServer)
-                        AppRepo.addServer(server)
-                        onConnected(server.id)
+                        connecting = false
+                        if (reachable) {
+                            AppRepo.addServer(server)
+                            onConnected(server.id)
+                        } else {
+                            unreachableServer = server
+                        }
                     }
                 },
                 enabled = proto != null && !connecting,
@@ -255,6 +265,24 @@ fun ConnectScreen(
             }
             }
         }
+    }
+
+    unreachableServer?.let { pending ->
+        AlertDialog(
+            onDismissRequest = { unreachableServer = null },
+            title = { Text("Couldn't reach server") },
+            text = { Text("AnMediaPlayer couldn't verify that \"${pending.name}\" is accessible right now. You can add it anyway and connect later.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    AppRepo.addServer(pending)
+                    unreachableServer = null
+                    onConnected(pending.id)
+                }) { Text("Add anyway") }
+            },
+            dismissButton = {
+                TextButton(onClick = { unreachableServer = null }) { Text("Cancel") }
+            },
+        )
     }
 }
 

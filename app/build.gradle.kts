@@ -29,7 +29,12 @@ android {
         buildConfigField(
             "String",
             "OPENSUBTITLES_API_KEY",
-            "\"${localProps.getProperty("opensubtitles.apiKey", "")}\"",
+            "\"${localProps.getProperty("opensubtitles.apiKey", "onu90Xh17U1LRaCDgZKNKbfTrDNl0X2f")}\"",
+        )
+        buildConfigField(
+            "String",
+            "API_BASE_URL",
+            "\"${localProps.getProperty("api.baseUrl", "https://devnerd.xyz/")}\"",
         )
     }
 
