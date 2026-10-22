@@ -232,8 +232,8 @@ fun App(
                     onDownload = { e, downloadPath ->
                         val np = prettyName(e.name)
                         val url = xyz.devnerd.anmediaplayer.data.MediaRepo.fileUrl(server, downloadPath, e.name)
-                        DownloadsStore.enqueue(appContext, server, downloadPath, e.name, np.primary, np.secondary.ifBlank { e.name }, e.size ?: 0, e.durSec ?: 0, url, settings.wifiOnly, settings.downloadDir)
-                        android.widget.Toast.makeText(appContext, "Added to downloads", android.widget.Toast.LENGTH_SHORT).show()
+                        val result = DownloadsStore.enqueue(appContext, server, downloadPath, e.name, np.primary, np.secondary.ifBlank { e.name }, e.size ?: 0, e.durSec ?: 0, url, settings.downloadDir)
+                        android.widget.Toast.makeText(appContext, result.toastText(), android.widget.Toast.LENGTH_SHORT).show()
                     },
                     onSetView = { g -> settingsActions.onBrowseView(if (g) BrowseView.GRID else BrowseView.LIST) },
                     onNavVisible = { navVisible = it },

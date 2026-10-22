@@ -370,6 +370,8 @@ private fun DownloadRow(
         Thumb(d)
         Column(Modifier.weight(1f)) {
             Text(d.title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            // Episode titles alone ("Episode 3") are ambiguous across shows — sub carries "Show · S01".
+            if (d.sub.isNotBlank() && d.sub != d.file) Text(d.sub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             val p = d.progress ?: 0
             when (d.state) {
                 DownloadState.DONE -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 2.dp)) {
@@ -380,7 +382,7 @@ private fun DownloadRow(
                     Icon(Icons.Outlined.ErrorOutline, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(13.dp))
                     Text("Failed", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
                 }
-                DownloadState.QUEUED -> Text("Queued", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                DownloadState.QUEUED -> Text(if (DownloadsStore.waitingForWifi) "Waiting for Wi-Fi" else "Queued", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 DownloadState.DOWNLOADING, DownloadState.PAUSED -> {
                     val label = if (d.state == DownloadState.PAUSED) "Paused · $p%" else "$p%  ·  ${fmtSize((d.size * (1 - p / 100.0)).toLong())} left"
                     Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))

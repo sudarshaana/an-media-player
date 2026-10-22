@@ -13,6 +13,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -281,20 +286,66 @@ object ThumbCache {
     }
 }
 
+/** Outcome of [DownloadsStore.enqueue], so callers can tell the user what actually happened. */
+enum class EnqueueResult {
+    ADDED, RETRIED, ALREADY;
+
+    fun toastText() = when (this) {
+        ADDED -> if (DownloadsStore.waitingForWifi) "Queued — waiting for Wi-Fi" else "Added to downloads"
+        RETRIED -> "Retrying download"
+        ALREADY -> "Already in downloads"
+    }
+}
+
 /** Pausable downloads via OkHttp (HTTP Range resume) → app external Movies dir. Persisted. */
 object DownloadsStore {
     val items = mutableStateListOf<Download>()
+    /** True while "Wi-Fi only" is on and the active network is metered — queued items wait. */
+    var waitingForWifi by mutableStateOf(false)
+        private set
     private lateinit var appCtx: Context
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val jobs = mutableMapOf<String, kotlinx.coroutines.Job>()
+    private val jobs = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.Job>()
+    // In-flight HTTP calls — cancelling one unblocks a pending socket read immediately (coroutine cancel alone can't).
+    private val calls = java.util.concurrent.ConcurrentHashMap<String, okhttp3.Call>()
     private val client = okhttp3.OkHttpClient()
     private val KEY_DOWNLOADS = stringPreferencesKey("downloads")
+    @Volatile private var wifiOnly = true
+    @Volatile private var unmetered = true
 
     fun init(context: Context) {
         appCtx = context.applicationContext
         runBlocking { items.addAll(parseDownloads(appCtx.repoStore.data.first()[KEY_DOWNLOADS])) }
-        // Jobs don't survive process death — show interrupted ones as paused (resumable).
-        items.toList().forEach { if (it.state == DownloadState.DOWNLOADING || it.state == DownloadState.QUEUED) update(it.id, DownloadState.PAUSED) }
+        // Jobs don't survive process death — show interrupted ones as paused (resumable). QUEUED stays queued.
+        items.toList().forEach { if (it.state == DownloadState.DOWNLOADING) update(it.id, DownloadState.PAUSED) }
+        scope.launch {
+            xyz.devnerd.anmediaplayer.settings.SettingsRepository(appCtx).settings
+                .map { it.wifiOnly }.distinctUntilChanged()
+                .collect { wifiOnly = it; onNetworkPolicyChanged() }
+        }
+        val cm = appCtx.getSystemService(android.net.ConnectivityManager::class.java)
+        runCatching {
+            cm.registerDefaultNetworkCallback(object : android.net.ConnectivityManager.NetworkCallback() {
+                override fun onCapabilitiesChanged(network: android.net.Network, caps: android.net.NetworkCapabilities) {
+                    val now = caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
+                    if (now != unmetered) { unmetered = now; onNetworkPolicyChanged() }
+                }
+                override fun onLost(network: android.net.Network) { unmetered = false; onNetworkPolicyChanged() }
+            })
+        }
+    }
+
+    private fun networkAllowed() = !wifiOnly || unmetered
+
+    /** Wi-Fi gate flipped: park running transfers as QUEUED, or kick off everything that was waiting. */
+    private fun onNetworkPolicyChanged() {
+        val allowed = networkAllowed()
+        waitingForWifi = !allowed
+        if (allowed) {
+            items.filter { it.state == DownloadState.QUEUED }.forEach { start(it.id) }
+        } else {
+            items.filter { it.state == DownloadState.DOWNLOADING }.forEach { stopTransfer(it.id); update(it.id, DownloadState.QUEUED) }
+        }
     }
 
     private fun persist() {
@@ -304,16 +355,32 @@ object DownloadsStore {
     }
 
     // Strip only path separators / filesystem-illegal chars; keep unicode (CJK, Bengali, accents, …) intact.
-    private fun fileFor(file: String) = java.io.File(appCtx.getExternalFilesDir(android.os.Environment.DIRECTORY_MOVIES), file.replace(Regex("[\\x00-\\x1f/\\\\:*?\"<>|]"), "_"))
+    private fun safeName(file: String) = file.replace(Regex("[\\x00-\\x1f/\\\\:*?\"<>|]"), "_")
+    private fun moviesDir() = appCtx.getExternalFilesDir(android.os.Environment.DIRECTORY_MOVIES)
 
-    fun enqueue(ctx: Context, server: String, path: List<String>, file: String, title: String, sub: String, size: Long, durSec: Int, url: String, wifiOnly: Boolean, destDir: String? = null) {
-        if (url.isBlank()) return
-        if (items.any { it.file == file && it.state != DownloadState.FAILED }) return
-        val id = "dl_${(server + path.joinToString("/") + file).hashCode()}"
+    /** Partial/working file, unique per download (same filename in two folders must not share bytes). */
+    private fun partFor(d: Download): java.io.File {
+        val f = java.io.File(moviesDir(), "${d.id.removePrefix("dl_")}_${safeName(d.file)}")
+        // Older builds named the partial after the file alone — adopt it so paused items keep their bytes.
+        val legacy = java.io.File(moviesDir(), safeName(d.file))
+        if (!f.exists() && legacy.exists() && d.state != DownloadState.DONE) legacy.renameTo(f)
+        return f
+    }
+
+    private fun idFor(server: String, path: List<String>, file: String) = "dl_${(server + path.joinToString("/") + file).hashCode()}"
+
+    fun enqueue(ctx: Context, server: String, path: List<String>, file: String, title: String, sub: String, size: Long, durSec: Int, url: String, destDir: String? = null): EnqueueResult {
+        if (url.isBlank()) return EnqueueResult.ALREADY
+        val id = idFor(server, path, file)
+        items.firstOrNull { it.id == id }?.let { existing ->
+            if (existing.state != DownloadState.FAILED) return EnqueueResult.ALREADY
+            start(id); return EnqueueResult.RETRIED
+        }
         items.add(Download(id, title, sub, file, size, DownloadState.QUEUED, 0, 0L, server, path, durSec, url, 0, null, destDir))
         persist(); start(id)
         // Resolve a poster (folder image, walking up to the show root) for the list thumbnail.
         scope.launch { MediaRepo.posterUrl(server, path)?.let { updateCover(id, it) } }
+        return EnqueueResult.ADDED
     }
 
     private fun updateCover(id: String, coverUrl: String) {
@@ -323,35 +390,45 @@ object DownloadsStore {
         persist()
     }
 
-    fun pause(id: String) { jobs.remove(id)?.cancel(); update(id, DownloadState.PAUSED); maybeStopService() }
+    /** Cancel the coroutine and its HTTP call; the job itself removes its [jobs] entry when it unwinds. */
+    private fun stopTransfer(id: String) {
+        jobs[id]?.cancel()
+        calls.remove(id)?.cancel()
+    }
+
+    fun pause(id: String) { stopTransfer(id); update(id, DownloadState.PAUSED); maybeStopService() }
     fun resume(id: String) { start(id) }
 
     /** Wipe any existing bytes (partial or completed) and re-download from scratch. */
     fun restart(ctx: Context, id: String) {
-        jobs.remove(id)?.cancel()
+        stopTransfer(id)
         val i = items.indexOfFirst { it.id == id }
         if (i < 0) return
         val item = items[i]
-        runCatching { fileFor(item.file).delete() }
-        item.localUri?.takeIf { it.startsWith("content://") }?.let { uri ->
-            runCatching { ctx.contentResolver.delete(android.net.Uri.parse(uri), null, null) }
-        }
+        deleteBytes(ctx, item, includeFinished = true)
         items[i] = item.copy(state = DownloadState.QUEUED, progress = 0, downloadedBytes = 0, localUri = null, completedAt = 0)
         persist()
         start(id)
     }
 
     private fun start(id: String) {
-        if (jobs[id]?.isActive == true) return
+        val cur = items.firstOrNull { it.id == id } ?: return
+        if (cur.state == DownloadState.DOWNLOADING && jobs[id]?.isActive == true) return
+        if (!networkAllowed()) { update(id, DownloadState.QUEUED); return }
         update(id, DownloadState.DOWNLOADING)
         maybeStartService()
-        jobs[id] = scope.launch {
+        // A just-cancelled job may still be unwinding (closing its file) — wait for it so two writers never share the partial.
+        val prev = jobs[id]
+        val job = scope.launch(start = kotlinx.coroutines.CoroutineStart.LAZY) {
+            prev?.join()
             runCatching { downloadLoop(id) }.onFailure {
-                if (it !is kotlinx.coroutines.CancellationException) update(id, DownloadState.FAILED)
+                // A cancelled call surfaces as IOException — only a live job's error is a real failure.
+                if (it !is kotlinx.coroutines.CancellationException && kotlinx.coroutines.currentCoroutineContext().isActive) update(id, DownloadState.FAILED)
             }
-            jobs.remove(id)
-            maybeStopService()
         }
+        jobs[id] = job
+        job.invokeOnCompletion { jobs.remove(id, job); calls.remove(id); maybeStopService() }
+        job.start()
     }
 
     /** Foreground service exempts the transfer from background process freezing/network throttling. */
@@ -360,7 +437,7 @@ object DownloadsStore {
     }
 
     private fun maybeStopService() {
-        if (jobs.isEmpty() && ::appCtx.isInitialized) appCtx.stopService(Intent(appCtx, DownloadService::class.java))
+        if (jobs.values.none { it.isActive } && ::appCtx.isInitialized) appCtx.stopService(Intent(appCtx, DownloadService::class.java))
     }
 
     private fun refreshNotification() {
@@ -374,46 +451,61 @@ object DownloadsStore {
 
     private suspend fun downloadLoop(id: String) {
         val d = items.firstOrNull { it.id == id } ?: return
-        val out = fileFor(d.file)
+        val out = partFor(d)
         val have = if (out.exists()) out.length() else 0L
         val req = okhttp3.Request.Builder().url(d.url).apply { if (have > 0) header("Range", "bytes=$have-") }.build()
-        client.newCall(req).execute().use { resp ->
+        val call = client.newCall(req).also { calls[id] = it }
+        val job = kotlinx.coroutines.currentCoroutineContext()
+        val active = { job.isActive }
+        call.execute().use { resp ->
+            // 416 on a resume = nothing left past our byte count: the partial is already whole.
+            if (resp.code == 416 && have > 0) { finish(d, out, have); return }
             if (!resp.isSuccessful) { update(id, DownloadState.FAILED); return }
             val body = resp.body ?: run { update(id, DownloadState.FAILED); return }
             val append = resp.code == 206
             val base = if (append) have else 0L
-            val total = (if (append) base + body.contentLength() else body.contentLength()).let { if (it > 0) it else d.size }
+            // Only the server's Content-Length is exact; listing sizes (h5ai "1550541 KB") are rounded.
+            val expected = body.contentLength().takeIf { it > 0 }?.let { base + it }
+            val total = expected ?: d.size
+            var written = base
             java.io.FileOutputStream(out, append).use { sink ->
                 body.byteStream().use { input ->
                     val buf = ByteArray(64 * 1024)
-                    var written = base
                     var lastTick = base
                     while (true) {
                         val n = input.read(buf)
                         if (n == -1) break
-                        if (!kotlinx.coroutines.currentCoroutineContext().isActive) { sink.flush(); return } // paused/cancelled → keep partial
+                        if (!active()) { sink.flush(); return } // paused/cancelled → keep partial
                         sink.write(buf, 0, n); written += n
                         if (written - lastTick > 512 * 1024) {
                             lastTick = written
                             val pct = if (total > 0) (written * 100 / total).toInt().coerceIn(0, 100) else 0
-                            update(id, DownloadState.DOWNLOADING, pct, downloadedBytes = written)
+                            reportProgress(id, pct, written)
                         }
                     }
                     sink.flush()
                 }
             }
-            // Move into the user's chosen folder (SAF) if set; else into the public Downloads/AnMediaPlayer folder.
-            val finalUri = d.destDir?.let { tree ->
-                runCatching {
-                    val dir = androidx.documentfile.provider.DocumentFile.fromTreeUri(appCtx, android.net.Uri.parse(tree)) ?: return@runCatching null
-                    val doc = dir.createFile(mimeFor(d.file), d.file) ?: return@runCatching null
-                    appCtx.contentResolver.openOutputStream(doc.uri)?.use { os -> out.inputStream().use { it.copyTo(os) } }
-                    out.delete()
-                    doc.uri.toString()
-                }.getOrNull()
-            } ?: moveToPublicDownloads(out, d.file)
-            update(id, DownloadState.DONE, 100, System.currentTimeMillis(), localUri = finalUri, downloadedBytes = d.size)
+            if (!active()) return
+            // Stream ended short of Content-Length → truncated; fail (Retry resumes from the partial).
+            if (expected != null && written < expected) throw java.io.IOException("Truncated: $written of $expected bytes")
+            finish(d, out, written)
         }
+    }
+
+    /** Move the completed partial to its final home and mark DONE. */
+    private fun finish(d: Download, out: java.io.File, bytes: Long) {
+        // Move into the user's chosen folder (SAF) if set; else into the public Downloads/AnMediaPlayer folder.
+        val finalUri = d.destDir?.let { tree ->
+            runCatching {
+                val dir = androidx.documentfile.provider.DocumentFile.fromTreeUri(appCtx, android.net.Uri.parse(tree)) ?: return@runCatching null
+                val doc = dir.createFile(mimeFor(d.file), d.file) ?: return@runCatching null
+                appCtx.contentResolver.openOutputStream(doc.uri)?.use { os -> out.inputStream().use { it.copyTo(os) } }
+                out.delete()
+                doc.uri.toString()
+            }.getOrNull()
+        } ?: moveToPublicDownloads(out, d.file)
+        update(d.id, DownloadState.DONE, 100, System.currentTimeMillis(), localUri = finalUri, downloadedBytes = bytes)
     }
 
     /** No custom folder picked → land in the shared Download/AnMediaPlayer folder (visible to other apps), unicode name preserved. */
@@ -447,6 +539,14 @@ object DownloadsStore {
         else -> "application/octet-stream"
     }
 
+    /** Progress tick from a transfer — dropped unless still DOWNLOADING, so a late tick can't undo a pause. */
+    private fun reportProgress(id: String, pct: Int, written: Long) {
+        val i = items.indexOfFirst { it.id == id }
+        if (i < 0 || items[i].state != DownloadState.DOWNLOADING) return
+        items[i] = items[i].copy(progress = pct, downloadedBytes = written)
+        refreshNotification()
+    }
+
     private fun update(id: String, state: DownloadState, progress: Int? = null, completedAt: Long? = null, localUri: String? = null, downloadedBytes: Long? = null) {
         val i = items.indexOfFirst { it.id == id }
         if (i < 0) return
@@ -468,16 +568,22 @@ object DownloadsStore {
         match?.let { remove(ctx, it.id, deleteFile = false) }
     }
 
-    fun remove(ctx: Context, id: String, deleteFile: Boolean = false) {
-        jobs.remove(id)?.cancel()
-        val item = items.firstOrNull { it.id == id }
-        if (deleteFile && item != null) {
-            runCatching { fileFor(item.file).delete() }
-            // Delete from the chosen SAF folder too, if it lives there.
-            item.localUri?.takeIf { it.startsWith("content://") }?.let { uri ->
-                runCatching { ctx.contentResolver.delete(android.net.Uri.parse(uri), null, null) }
-            }
+    /** Delete the partial (always safe) and, if [includeFinished], the completed file wherever it landed. */
+    private fun deleteBytes(ctx: Context, item: Download, includeFinished: Boolean) {
+        runCatching { partFor(item).delete() }
+        if (!includeFinished) return
+        val uri = item.localUri ?: return
+        when {
+            uri.startsWith("content://") -> runCatching { ctx.contentResolver.delete(android.net.Uri.parse(uri), null, null) }
+            uri.startsWith("file://") -> runCatching { android.net.Uri.parse(uri).path?.let { java.io.File(it).delete() } }
         }
+    }
+
+    fun remove(ctx: Context, id: String, deleteFile: Boolean = false) {
+        stopTransfer(id)
+        val item = items.firstOrNull { it.id == id }
+        // A partial is useless once its row is gone — always drop it; finished files only when asked.
+        if (item != null) deleteBytes(ctx, item, includeFinished = deleteFile)
         items.removeAll { it.id == id }
         persist()
         maybeStopService()

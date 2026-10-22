@@ -137,11 +137,11 @@ fun PlayerHost(request: PlaybackRequest, settings: AppSettings, onClose: () -> U
     val context = LocalContext.current
     val downloadAction: (() -> Unit)? = if (!offline) ({
         val size = loaded.firstOrNull { it.name == file }?.size ?: 0
-        xyz.devnerd.anmediaplayer.data.DownloadsStore.enqueue(
+        val result = xyz.devnerd.anmediaplayer.data.DownloadsStore.enqueue(
             context, request.serverId, curPath, file, np.primary, np.secondary.ifBlank { file },
-            size, durSec, MediaRepo.fileUrl(request.serverId, curPath, file), settings.wifiOnly, settings.downloadDir,
+            size, durSec, MediaRepo.fileUrl(request.serverId, curPath, file), settings.downloadDir,
         )
-        android.widget.Toast.makeText(context, "Added to downloads", android.widget.Toast.LENGTH_SHORT).show()
+        android.widget.Toast.makeText(context, result.toastText(), android.widget.Toast.LENGTH_SHORT).show()
     }) else null
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
