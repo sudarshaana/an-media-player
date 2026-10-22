@@ -197,6 +197,7 @@ fun App(
                 }
             }
             composable("browse/{server}/{path}") { entry ->
+                val askNotifications = xyz.devnerd.anmediaplayer.ui.components.rememberNotificationPermissionAsker()
                 val server = entry.arguments?.getString("server") ?: "home"
                 val raw = entry.arguments?.getString("path") ?: "_"
                 val path = if (raw == "_") emptyList() else Uri.decode(raw).split("/")
@@ -230,6 +231,7 @@ fun App(
                     onOpenFolder = { s, p -> navController.navigate(browseRoute(s, p)) },
                     onPlay = play,
                     onDownload = { e, downloadPath ->
+                        askNotifications()
                         val np = prettyName(e.name)
                         val url = xyz.devnerd.anmediaplayer.data.MediaRepo.fileUrl(server, downloadPath, e.name)
                         val result = DownloadsStore.enqueue(appContext, server, downloadPath, e.name, np.primary, np.secondary.ifBlank { e.name }, e.size ?: 0, e.durSec ?: 0, url, settings.downloadDir)

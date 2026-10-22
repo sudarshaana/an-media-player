@@ -312,6 +312,11 @@ object DownloadsStore {
     private val KEY_DOWNLOADS = stringPreferencesKey("downloads")
     @Volatile private var wifiOnly = true
     @Volatile private var unmetered = true
+    /** Concurrent transfers; the rest wait as QUEUED and start, oldest first, as slots free up. */
+    private const val MAX_ACTIVE = 2
+    // Guards queue decisions (start/pump/pause-all) — job completions arrive on IO threads.
+    private val queueLock = Any()
+    private var lastNotifyAt = 0L
 
     fun init(context: Context) {
         appCtx = context.applicationContext
@@ -327,8 +332,8 @@ object DownloadsStore {
         runCatching {
             cm.registerDefaultNetworkCallback(object : android.net.ConnectivityManager.NetworkCallback() {
                 override fun onCapabilitiesChanged(network: android.net.Network, caps: android.net.NetworkCapabilities) {
-                    val now = caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
-                    if (now != unmetered) { unmetered = now; onNetworkPolicyChanged() }
+                    unmetered = caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
+                    onNetworkPolicyChanged()
                 }
                 override fun onLost(network: android.net.Network) { unmetered = false; onNetworkPolicyChanged() }
             })
@@ -338,13 +343,22 @@ object DownloadsStore {
     private fun networkAllowed() = !wifiOnly || unmetered
 
     /** Wi-Fi gate flipped: park running transfers as QUEUED, or kick off everything that was waiting. */
-    private fun onNetworkPolicyChanged() {
+    private fun onNetworkPolicyChanged() = synchronized(queueLock) {
         val allowed = networkAllowed()
         waitingForWifi = !allowed
         if (allowed) {
-            items.filter { it.state == DownloadState.QUEUED }.forEach { start(it.id) }
+            pumpQueue()
         } else {
             items.filter { it.state == DownloadState.DOWNLOADING }.forEach { stopTransfer(it.id); update(it.id, DownloadState.QUEUED) }
+        }
+    }
+
+    /** Fill free transfer slots from the queue, oldest first. */
+    private fun pumpQueue() = synchronized(queueLock) {
+        if (!networkAllowed()) return
+        for (q in items.filter { it.state == DownloadState.QUEUED }) {
+            if (items.count { it.state == DownloadState.DOWNLOADING } >= MAX_ACTIVE) break
+            start(q.id)
         }
     }
 
@@ -374,7 +388,7 @@ object DownloadsStore {
         val id = idFor(server, path, file)
         items.firstOrNull { it.id == id }?.let { existing ->
             if (existing.state != DownloadState.FAILED) return EnqueueResult.ALREADY
-            start(id); return EnqueueResult.RETRIED
+            resume(id); return EnqueueResult.RETRIED
         }
         items.add(Download(id, title, sub, file, size, DownloadState.QUEUED, 0, 0L, server, path, durSec, url, 0, null, destDir))
         persist(); start(id)
@@ -397,7 +411,12 @@ object DownloadsStore {
     }
 
     fun pause(id: String) { stopTransfer(id); update(id, DownloadState.PAUSED); maybeStopService() }
-    fun resume(id: String) { start(id) }
+    fun resume(id: String) { DownloadService.cancelResult(appCtx, id); start(id) }
+
+    /** Notification "Pause" — hold everything running or waiting, so a freed slot doesn't start the next one. */
+    fun pauseAll() = synchronized(queueLock) {
+        items.filter { it.state == DownloadState.DOWNLOADING || it.state == DownloadState.QUEUED }.forEach { pause(it.id) }
+    }
 
     /** Wipe any existing bytes (partial or completed) and re-download from scratch. */
     fun restart(ctx: Context, id: String) {
@@ -411,10 +430,11 @@ object DownloadsStore {
         start(id)
     }
 
-    private fun start(id: String) {
+    private fun start(id: String): Unit = synchronized(queueLock) {
         val cur = items.firstOrNull { it.id == id } ?: return
         if (cur.state == DownloadState.DOWNLOADING && jobs[id]?.isActive == true) return
-        if (!networkAllowed()) { update(id, DownloadState.QUEUED); return }
+        val busy = items.count { it.state == DownloadState.DOWNLOADING && it.id != id }
+        if (!networkAllowed() || busy >= MAX_ACTIVE) { update(id, DownloadState.QUEUED); return }
         update(id, DownloadState.DOWNLOADING)
         maybeStartService()
         // A just-cancelled job may still be unwinding (closing its file) — wait for it so two writers never share the partial.
@@ -427,7 +447,7 @@ object DownloadsStore {
             }
         }
         jobs[id] = job
-        job.invokeOnCompletion { jobs.remove(id, job); calls.remove(id); maybeStopService() }
+        job.invokeOnCompletion { jobs.remove(id, job); pumpQueue(); maybeStopService() }
         job.start()
     }
 
@@ -440,13 +460,26 @@ object DownloadsStore {
         if (jobs.values.none { it.isActive } && ::appCtx.isInitialized) appCtx.stopService(Intent(appCtx, DownloadService::class.java))
     }
 
-    private fun refreshNotification() {
+    /** Ongoing notification: combined progress of running transfers. Throttled — Android drops bursts. */
+    private fun refreshNotification(force: Boolean = false) {
         if (!::appCtx.isInitialized) return
         val active = items.filter { it.state == DownloadState.DOWNLOADING }
         if (active.isEmpty()) return
-        val first = active.first()
-        val text = if (active.size > 1) "${first.title} +${active.size - 1} more" else first.title
-        DownloadService.notify(appCtx, "Downloading", text, first.progress ?: 0)
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (!force && now - lastNotifyAt < 1000) return
+        lastNotifyAt = now
+        val total = active.sumOf { it.size }
+        val done = active.sumOf { it.downloadedBytes }
+        val pct = if (total > 0) (done * 100 / total).toInt() else active.first().progress ?: 0
+        val queued = items.count { it.state == DownloadState.QUEUED }
+        val title = if (active.size == 1) active.first().title else "Downloading ${active.size} files"
+        val text = buildString {
+            append("$pct%")
+            if (total > 0) append(" · ${fmtSize(done)} of ${fmtSize(total)}")
+            if (active.size == 1 && active.first().sub.isNotBlank() && active.first().sub != active.first().file) append(" · ${active.first().sub}")
+            if (queued > 0) append(" · $queued queued")
+        }
+        DownloadService.notifyProgress(appCtx, title, text, pct, indeterminate = total <= 0 && pct == 0, pauseLabel = if (active.size + queued > 1) "Pause all" else "Pause")
     }
 
     private suspend fun downloadLoop(id: String) {
@@ -457,6 +490,15 @@ object DownloadsStore {
         val call = client.newCall(req).also { calls[id] = it }
         val job = kotlinx.coroutines.currentCoroutineContext()
         val active = { job.isActive }
+        try {
+            transfer(d, out, have, call, active)
+        } finally {
+            calls.remove(id, call)
+        }
+    }
+
+    private fun transfer(d: Download, out: java.io.File, have: Long, call: okhttp3.Call, active: () -> Boolean) {
+        val id = d.id
         call.execute().use { resp ->
             // 416 on a resume = nothing left past our byte count: the partial is already whole.
             if (resp.code == 416 && have > 0) { finish(d, out, have); return }
@@ -559,7 +601,10 @@ object DownloadsStore {
             downloadedBytes = downloadedBytes ?: prev.downloadedBytes,
         )
         if (prev.state != state || prev.localUri != items[i].localUri) persist()
-        if (state == DownloadState.DOWNLOADING) refreshNotification()
+        if (state == DownloadState.DOWNLOADING) refreshNotification(force = prev.state != state)
+        if (prev.state == DownloadState.DOWNLOADING && (state == DownloadState.DONE || state == DownloadState.FAILED)) {
+            DownloadService.notifyResult(appCtx, items[i], ok = state == DownloadState.DONE)
+        }
     }
 
     /** A Local Files delete already removed the file via MediaStore — drop the matching Downloads row, file already gone. */
@@ -581,6 +626,7 @@ object DownloadsStore {
 
     fun remove(ctx: Context, id: String, deleteFile: Boolean = false) {
         stopTransfer(id)
+        DownloadService.cancelResult(ctx, id)
         val item = items.firstOrNull { it.id == id }
         // A partial is useless once its row is gone — always drop it; finished files only when asked.
         if (item != null) deleteBytes(ctx, item, includeFinished = deleteFile)

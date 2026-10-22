@@ -135,7 +135,9 @@ fun PlayerHost(request: PlaybackRequest, settings: AppSettings, onClose: () -> U
 
     // Download the current file — only when streaming from a server (not already offline).
     val context = LocalContext.current
+    val askNotifications = xyz.devnerd.anmediaplayer.ui.components.rememberNotificationPermissionAsker()
     val downloadAction: (() -> Unit)? = if (!offline) ({
+        askNotifications()
         val size = loaded.firstOrNull { it.name == file }?.size ?: 0
         val result = xyz.devnerd.anmediaplayer.data.DownloadsStore.enqueue(
             context, request.serverId, curPath, file, np.primary, np.secondary.ifBlank { file },

@@ -53,6 +53,10 @@
             android:name=".data.DownloadService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+        <!-- Notification actions (Pause all / Retry) for downloads. -->
+        <receiver
+            android:name=".data.DownloadActionReceiver"
+            android:exported="false" />
         <!-- Lets us share files held in app-private external storage (downloaded videos). -->
         <provider
             android:name="androidx.core.content.FileProvider"

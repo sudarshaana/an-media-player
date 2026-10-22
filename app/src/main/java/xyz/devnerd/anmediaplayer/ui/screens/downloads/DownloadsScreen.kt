@@ -398,11 +398,10 @@ private fun DownloadRow(
             }
             DropdownMenu(expanded = menuExpanded, onDismissRequest = onDismissMenu) {
                 when (d.state) {
-                    DownloadState.DOWNLOADING -> DropdownMenuItem(text = { Text("Pause") }, leadingIcon = { Icon(Icons.Outlined.PauseCircleOutline, null) }, onClick = onPause)
+                    DownloadState.DOWNLOADING, DownloadState.QUEUED -> DropdownMenuItem(text = { Text("Pause") }, leadingIcon = { Icon(Icons.Outlined.PauseCircleOutline, null) }, onClick = onPause)
                     DownloadState.PAUSED -> DropdownMenuItem(text = { Text("Resume") }, leadingIcon = { Icon(Icons.Outlined.PlayCircleOutline, null) }, onClick = onResume)
                     DownloadState.FAILED -> DropdownMenuItem(text = { Text("Retry") }, leadingIcon = { Icon(Icons.Outlined.Autorenew, null) }, onClick = onResume)
                     DownloadState.DONE -> DropdownMenuItem(text = { Text("Restart") }, leadingIcon = { Icon(Icons.Outlined.RestartAlt, null) }, onClick = onRestart)
-                    DownloadState.QUEUED -> {}
                 }
                 DropdownMenuItem(text = { Text("Info") }, leadingIcon = { Icon(Icons.Outlined.Info, null) }, onClick = onInfo)
                 if (playable) DropdownMenuItem(text = { Text("Share") }, leadingIcon = { Icon(Icons.Outlined.Share, null) }, onClick = onShare)
